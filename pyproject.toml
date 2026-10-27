@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sensor-fusion-ml"
+version = "0.1.0"
+description = "Modular Sensor Fusion ML pipeline for robotics and autonomous systems"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "ArqTech Labs / Eduardo Moraes"}
+]
+keywords = ["sensor-fusion", "kalman-filter", "tracking", "trajectory-prediction", "robotics", "autonomous-systems", "pytorch"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Robotics",
+]
+
+dependencies = [
+    "numpy>=1.24.0,<2.2.0",
+    "scipy>=1.11.0",
+    "PyYAML>=6.0",
+    "tqdm>=4.66.0",
+    "torch>=2.1.0",
+    "opencv-python-headless>=4.8.0",
+    "Pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
+viz = [
+    "matplotlib>=3.8.0",
+]
+lidar = [
+    "open3d>=0.17.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/edu-moraess/sensor-fusion-ml"
+Repository = "https://github.com/edu-moraess/sensor-fusion-ml"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

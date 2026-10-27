@@ -1,0 +1,97 @@
+# Default configuration for sensor-fusion-ml
+# All paths are relative to a user-provided data_root unless absolute.
+
+project:
+  name: sensor-fusion-ml
+  version: "0.1.0"
+  seed: 42
+
+paths:
+  data_root: null          # Must be set explicitly by user
+  artifacts_dir: artifacts
+  checkpoints_dir: artifacts/checkpoints
+  reports_dir: artifacts/reports
+
+data:
+  # Allowed modalities (subset may be present)
+  modalities:
+    - rgb
+    - lidar
+    - radar
+    - gnss
+    - imu
+    - odometry
+  # Temporal
+  time_unit: "seconds"     # or "nanoseconds"
+  max_time_gap_s: 0.5
+  # Validation thresholds
+  max_nan_ratio: 0.0
+  require_finite: true
+  check_duplicates: true
+  check_temporal_order: true
+
+splits:
+  # Separation must be by sequence / scene, never by frame shuffle
+  strategy: "sequence"
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  # Explicit sequence lists override ratios when provided
+  train_sequences: null
+  val_sequences: null
+  test_sequences: null
+
+baseline:
+  # Classical Kalman Filter state: [x, y, vx, vy] or [x,y,z,vx,vy,vz]
+  state_dim: 4
+  process_noise: 0.1
+  measurement_noise: 1.0
+  association: "hungarian"   # or "greedy"
+  max_association_cost: 5.0  # meters
+  track_birth_threshold: 3
+  track_death_threshold: 5
+
+model:
+  # Minimal trainable architecture
+  name: "MinimalFusionMLP"
+  visual_encoder: "cnn_small"
+  point_encoder: "pointnet_small"
+  fusion: "concat"
+  use_gru: false
+  hidden_dim: 128
+  dropout: 0.1
+  # Output heads
+  predict_position: true
+  predict_velocity: true
+  predict_trajectory: true
+  trajectory_horizon: 10     # steps
+  # Missing modality handling
+  modality_dropout_prob: 0.0  # only for training robustness experiments
+
+training:
+  batch_size: 8
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  max_epochs: 50
+  early_stopping_patience: 10
+  # Never use test set for hyperparameter search
+  checkpoint_metric: "val_ade"
+  device: "auto"             # "cuda" | "cpu" | "auto"
+
+evaluation:
+  metrics:
+    - mae_position
+    - rmse_position
+    - mae_velocity
+    - rmse_velocity
+    - ade
+    - fde
+  # Only compute metrics for which ground-truth references exist
+  require_gt: true
+  units:
+    position: "m"
+    velocity: "m/s"
+
+logging:
+  level: "INFO"
+  report_format: "json"

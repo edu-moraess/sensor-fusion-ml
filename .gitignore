@@ -1,0 +1,118 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Testing / Coverage
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# MyPy / Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Data (never commit large datasets)
+data/
+datasets/
+*.bin
+*.pcd
+*.ply
+*.bag
+*.mcap
+*.rosbag
+*.h5
+*.hdf5
+*.parquet
+*.tfrecord
+
+# Artifacts & outputs
+artifacts/*
+!artifacts/.gitkeep
+outputs/
+runs/
+logs/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# Secrets & local config
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+credentials.json
+token.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.log
+*.bak
+
+# Colab / Drive noise
+drive/
+sample_data/

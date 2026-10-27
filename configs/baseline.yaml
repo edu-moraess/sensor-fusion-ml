@@ -1,0 +1,50 @@
+# Baseline classical configuration (Kalman + association)
+# Inherits structure from default.yaml; overrides only what differs.
+
+project:
+  name: sensor-fusion-ml-baseline
+  version: "0.1.0"
+  seed: 42
+
+paths:
+  data_root: null
+  artifacts_dir: artifacts
+  reports_dir: artifacts/reports/baseline
+
+data:
+  modalities:
+    - gnss          # preferred for metric position reference
+    - imu
+    - odometry
+  time_unit: "seconds"
+  max_time_gap_s: 0.2
+  max_nan_ratio: 0.0
+  require_finite: true
+  check_duplicates: true
+  check_temporal_order: true
+
+baseline:
+  state_dim: 4                # [x, y, vx, vy]
+  process_noise: 0.05
+  measurement_noise: 0.5
+  association: "hungarian"
+  max_association_cost: 3.0   # meters
+  track_birth_threshold: 2
+  track_death_threshold: 4
+  # Use synthetic data for unit/integration tests when no real dataset is mounted
+  use_synthetic_for_tests: true
+
+evaluation:
+  metrics:
+    - mae_position
+    - rmse_position
+    - mae_velocity
+    - rmse_velocity
+  require_gt: true
+  units:
+    position: "m"
+    velocity: "m/s"
+
+logging:
+  level: "INFO"
+  report_format: "json"

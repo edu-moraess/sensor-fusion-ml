@@ -188,6 +188,33 @@ def test_nested_payload_checks_all_numeric_arrays():
     assert check.details["inf_count"] == 1
 
 
+@pytest.mark.parametrize(
+    ("bad_value", "expected_count_key"),
+    [
+        (float("nan"), "nan_count"),
+        (float("inf"), "inf_count"),
+    ],
+)
+def test_nested_python_numeric_scalars_are_checked(bad_value, expected_count_key):
+    frames = _make_frames(5)
+    frames[1].observations[SensorModality.GNSS].data = {
+        "quality": {"residuals": [0.1, (0.2, bad_value)]},
+        "label": "must not be treated as numeric",
+    }
+
+    report = DataValidator(DataContract(
+        name="nested_python_scalar",
+        required_modalities=[SensorModality.GNSS],
+        require_finite=True,
+        max_nan_ratio=0.0,
+    )).validate_frames(frames)
+
+    assert report.status == ValidationStatus.FAIL
+    check = _check(report, "finite_values")
+    assert check.status == ValidationStatus.FAIL
+    assert check.details[expected_count_key] == 1
+
+
 def test_dimension_consistency_checks_fixed_shape_modalities():
     frames = _make_frames(5)
     frames[2].observations[SensorModality.GNSS].data = np.zeros(4)

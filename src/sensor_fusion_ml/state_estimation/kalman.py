@@ -7,22 +7,21 @@ State vector (3D): [x, y, z, vx, vy, vz]
 This is a classical reference, not a learned model.
 All estimates are explicitly marked as such.
 """
-
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 
 
 @dataclass
 class KalmanState:
-    mean: np.ndarray          # (state_dim,)
-    covariance: np.ndarray    # (state_dim, state_dim)
-    timestamp: float          # seconds
+    mean: np.ndarray
+    covariance: np.ndarray
+    timestamp: float
     track_id: Optional[int] = None
-    is_estimate: bool = True  # always True for filtered state
+    is_estimate: bool = True
     hits: int = 0
     age: int = 0
     time_since_update: int = 0
@@ -37,18 +36,7 @@ class KalmanState:
 
 
 class ConstantVelocityKF:
-    """
-    Linear constant-velocity Kalman Filter.
-
-    Parameters
-    ----------
-    dim : int
-        Spatial dimension (2 or 3).
-    process_noise : float
-        Scalar process noise intensity.
-    measurement_noise : float
-        Scalar measurement noise (position only).
-    """
+    """Linear constant-velocity Kalman Filter."""
 
     def __init__(
         self,
@@ -62,12 +50,48 @@ class ConstantVelocityKF:
         self.state_dim = 2 * dim
         self.q = float(process_noise)
         self.r = float(measurement_noise)
+        if not np.isfinite(self.q) or self.q < 0:
+            raise ValueError("process_noise must be finite and >= 0")
+        if not np.isfinite(self.r) or self.r <= 0:
+            raise ValueError("measurement_noise must be finite and > 0")
 
-        # Measurement matrix: we observe position only
         self.H = np.zeros((dim, self.state_dim), dtype=np.float64)
         self.H[:, :dim] = np.eye(dim)
-
         self.R = np.eye(dim, dtype=np.float64) * self.r
+
+    @staticmethod
+    def _validate_timestamp(timestamp: float) -> float:
+        value = float(timestamp)
+        if not np.isfinite(value):
+            raise ValueError("timestamp must be finite")
+        return value
+
+    def _validate_measurement(self, measurement: np.ndarray) -> np.ndarray:
+        value = np.asarray(measurement, dtype=np.float64).ravel()
+        if value.shape != (self.dim,):
+            raise ValueError(f"measurement must have shape ({self.dim},)")
+        if not np.all(np.isfinite(value)):
+            raise ValueError("measurement must contain only finite values")
+        return value
+
+    def _validate_state(self, state: KalmanState) -> None:
+        mean = np.asarray(state.mean, dtype=np.float64)
+        cov = np.asarray(state.covariance, dtype=np.float64)
+        if mean.shape != (self.state_dim,):
+            raise ValueError(f"state.mean must have shape ({self.state_dim},)")
+        if cov.shape != (self.state_dim, self.state_dim):
+            raise ValueError(
+                f"state.covariance must have shape ({self.state_dim}, {self.state_dim})"
+            )
+        if not np.all(np.isfinite(mean)) or not np.all(np.isfinite(cov)):
+            raise ValueError("state mean and covariance must contain only finite values")
+        if not np.isfinite(float(state.timestamp)):
+            raise ValueError("state timestamp must be finite")
+        if not np.allclose(cov, cov.T, rtol=1e-7, atol=1e-9):
+            raise ValueError("state covariance must be symmetric")
+        # Permit tiny floating-point negative eigenvalues, reject materially invalid covariance.
+        if np.linalg.eigvalsh((cov + cov.T) / 2.0).min() < -1e-8:
+            raise ValueError("state covariance must be positive semidefinite")
 
     def _F(self, dt: float) -> np.ndarray:
         F = np.eye(self.state_dim, dtype=np.float64)
@@ -75,7 +99,6 @@ class ConstantVelocityKF:
         return F
 
     def _Q(self, dt: float) -> np.ndarray:
-        # Simple continuous white-noise acceleration model discretized
         q = self.q
         dt2 = dt * dt
         dt3 = dt2 * dt
@@ -91,69 +114,69 @@ class ConstantVelocityKF:
             Q[i + self.dim, i + self.dim] = q22
         return Q
 
-    def initiate(self, measurement: np.ndarray, timestamp: float, track_id: Optional[int] = None) -> KalmanState:
-        """Create a new track from a position measurement."""
-        measurement = np.asarray(measurement, dtype=np.float64).ravel()
-        if measurement.shape[0] != self.dim:
-            raise ValueError(f"measurement must have shape ({self.dim},)")
-
+    def initiate(
+        self,
+        measurement: np.ndarray,
+        timestamp: float,
+        track_id: Optional[int] = None,
+    ) -> KalmanState:
+        """Create a new track from a validated position measurement."""
+        measurement = self._validate_measurement(measurement)
+        timestamp = self._validate_timestamp(timestamp)
         mean = np.zeros(self.state_dim, dtype=np.float64)
         mean[:self.dim] = measurement
-        # High initial velocity uncertainty
         cov = np.eye(self.state_dim, dtype=np.float64) * 10.0
         cov[:self.dim, :self.dim] = np.eye(self.dim) * self.r
-
         return KalmanState(
-            mean=mean,
-            covariance=cov,
-            timestamp=timestamp,
-            track_id=track_id,
-            hits=1,
-            age=1,
-            time_since_update=0,
+            mean=mean, covariance=cov, timestamp=timestamp, track_id=track_id,
+            hits=1, age=1, time_since_update=0,
         )
 
     def predict(self, state: KalmanState, timestamp: float) -> KalmanState:
-        dt = timestamp - state.timestamp
+        self._validate_state(state)
+        timestamp = self._validate_timestamp(timestamp)
+        dt = timestamp - float(state.timestamp)
         if dt < 0:
             raise ValueError("Cannot predict backwards in time")
         F = self._F(dt)
-        Q = self._Q(dt)
-        mean = F @ state.mean
-        cov = F @ state.covariance @ F.T + Q
+        mean = F @ np.asarray(state.mean, dtype=np.float64)
+        cov = F @ np.asarray(state.covariance, dtype=np.float64) @ F.T + self._Q(dt)
+        cov = (cov + cov.T) / 2.0
+        if not np.all(np.isfinite(mean)) or not np.all(np.isfinite(cov)):
+            raise ValueError("prediction produced non-finite state values")
         return KalmanState(
-            mean=mean,
-            covariance=cov,
-            timestamp=timestamp,
-            track_id=state.track_id,
-            hits=state.hits,
-            age=state.age + 1,
+            mean=mean, covariance=cov, timestamp=timestamp, track_id=state.track_id,
+            hits=state.hits, age=state.age + 1,
             time_since_update=state.time_since_update + 1,
         )
 
     def update(self, state: KalmanState, measurement: np.ndarray) -> KalmanState:
-        measurement = np.asarray(measurement, dtype=np.float64).ravel()
-        if measurement.shape[0] != self.dim:
-            raise ValueError(f"measurement must have shape ({self.dim},)")
+        self._validate_state(state)
+        measurement = self._validate_measurement(measurement)
+        mean_prior = np.asarray(state.mean, dtype=np.float64)
+        cov_prior = np.asarray(state.covariance, dtype=np.float64)
+        innovation = measurement - self.H @ mean_prior
+        S = self.H @ cov_prior @ self.H.T + self.R
+        if not np.all(np.isfinite(S)):
+            raise ValueError("innovation covariance contains non-finite values")
+        try:
+            # Solve S X = (P H^T)^T to avoid explicitly forming S inverse.
+            K = np.linalg.solve(S, cov_prior @ self.H.T).T
+        except np.linalg.LinAlgError as exc:
+            raise ValueError("innovation covariance is singular") from exc
 
-        # Innovation
-        z_pred = self.H @ state.mean
-        y = measurement - z_pred
-        S = self.H @ state.covariance @ self.H.T + self.R
-        K = state.covariance @ self.H.T @ np.linalg.inv(S)
-
-        mean = state.mean + K @ y
-        # Joseph form for covariance (more stable)
-        I = np.eye(self.state_dim)
-        cov = (I - K @ self.H) @ state.covariance @ (I - K @ self.H).T + K @ self.R @ K.T
-
+        mean = mean_prior + K @ innovation
+        I_KH = np.eye(self.state_dim) - K @ self.H
+        # Joseph form is more numerically stable than the simplified update.
+        cov = I_KH @ cov_prior @ I_KH.T + K @ self.R @ K.T
+        cov = (cov + cov.T) / 2.0
+        if not np.all(np.isfinite(mean)) or not np.all(np.isfinite(cov)):
+            raise ValueError("update produced non-finite state values")
+        if np.linalg.eigvalsh(cov).min() < -1e-8:
+            raise ValueError("update produced an invalid covariance")
         return KalmanState(
-            mean=mean,
-            covariance=cov,
-            timestamp=state.timestamp,
-            track_id=state.track_id,
-            hits=state.hits + 1,
-            age=state.age,
+            mean=mean, covariance=cov, timestamp=state.timestamp,
+            track_id=state.track_id, hits=state.hits + 1, age=state.age,
             time_since_update=0,
         )
 

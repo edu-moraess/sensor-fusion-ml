@@ -67,7 +67,7 @@ class ConstantVelocityKF:
         return value
 
     def _validate_measurement(self, measurement: np.ndarray) -> np.ndarray:
-        value = np.asarray(measurement, dtype=np.float64).ravel()
+        value = np.asarray(measurement, dtype=np.float64)
         if value.shape != (self.dim,):
             raise ValueError(f"measurement must have shape ({self.dim},)")
         if not np.all(np.isfinite(value)):

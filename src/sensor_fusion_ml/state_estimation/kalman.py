@@ -161,7 +161,7 @@ class ConstantVelocityKF:
             raise ValueError("innovation covariance contains non-finite values")
         try:
             # Solve S X = (P H^T)^T to avoid explicitly forming S inverse.
-            K = np.linalg.solve(S, cov_prior @ self.H.T).T
+            K = np.linalg.solve(S, (cov_prior @ self.H.T).T).T
         except np.linalg.LinAlgError as exc:
             raise ValueError("innovation covariance is singular") from exc
 

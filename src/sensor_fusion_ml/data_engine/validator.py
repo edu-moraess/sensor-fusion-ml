@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import numbers
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
@@ -513,7 +514,7 @@ class DataValidator:
 
     @staticmethod
     def _extract_numeric_arrays(data: Any, path: str = "$") -> List[Tuple[str, np.ndarray]]:
-        """Return every numeric ndarray nested in a payload, with its stable key path."""
+        """Return numeric ndarrays and numeric scalar leaves nested in a payload."""
         found: List[Tuple[str, np.ndarray]] = []
         if isinstance(data, np.ndarray):
             if np.issubdtype(data.dtype, np.number):
@@ -524,4 +525,8 @@ class DataValidator:
         elif isinstance(data, (list, tuple)):
             for index, value in enumerate(data):
                 found.extend(DataValidator._extract_numeric_arrays(value, f"{path}[{index}]"))
+        elif isinstance(data, numbers.Number) and not isinstance(data, (bool, np.bool_)):
+            scalar = np.asarray(data)
+            if np.issubdtype(scalar.dtype, np.number):
+                found.append((path, scalar))
         return found

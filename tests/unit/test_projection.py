@@ -81,6 +81,17 @@ def test_rejects_invalid_calibration_or_arguments(kwargs):
         project([[0.0, 0.0, 10.0]], **kwargs)
 
 
+def test_rejects_nonpositive_projective_denominator():
+    bad_projection = PROJECTION.copy()
+    bad_projection[2] = 0.0
+    result = project(
+        [[0.0, 0.0, 10.0]],
+        projection_matrix=bad_projection,
+    )
+    assert result.positive_depth.tolist() == [False]
+    assert np.isnan(result.pixels[0]).all()
+
+
 def test_rejects_invalid_point_array_shape():
     with pytest.raises(ValueError):
         project([1.0, 2.0, 3.0])

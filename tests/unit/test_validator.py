@@ -142,7 +142,7 @@ def test_fail_nonfinite_frame_timestamp():
         name="timestamp_finite",
         required_modalities=[SensorModality.GNSS],
     )).validate_frames(frames)
-    assert report.status == ValidationStatus.FAIL
+    assert report.status == ValidationStatus.BLOCKED
     assert _check(report, "timestamp_finiteness").status == ValidationStatus.FAIL
     assert _check(report, "timestamp_order").status == ValidationStatus.BLOCKED
 

@@ -134,6 +134,7 @@ def project_lidar_to_image(
         & np.isfinite(rectified_points).all(axis=0)
         & np.isfinite(projected).all(axis=0)
         & (depth > min_depth)
+        & (projected[2] > min_depth)
     )
 
     pixels = np.full((count, 2), np.nan, dtype=np.float64)

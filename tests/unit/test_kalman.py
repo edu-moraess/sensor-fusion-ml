@@ -66,6 +66,7 @@ def test_rejects_invalid_noise_parameters(kwargs):
     [float("inf"), 0.0],
     [0.0],
     [0.0, 1.0, 2.0],
+    [[0.0], [1.0]],  # 2-D array with correct element count must still be rejected
 ])
 def test_initiate_rejects_invalid_measurements(measurement):
     with pytest.raises(ValueError):

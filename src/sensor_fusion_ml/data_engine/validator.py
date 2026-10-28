@@ -362,7 +362,12 @@ class DataValidator:
 
         nan_ratio = nan_count / total_values
         if self.contract.require_finite and (nan_count > 0 or inf_count > 0):
-            status = ValidationStatus.FAIL if nan_ratio > self.contract.max_nan_ratio else ValidationStatus.PASS_WITH_WARNINGS
+            # Infinity is never covered by the NaN tolerance; it is always invalid when finiteness is required.
+            status = (
+                ValidationStatus.FAIL
+                if inf_count > 0 or nan_ratio > self.contract.max_nan_ratio
+                else ValidationStatus.PASS_WITH_WARNINGS
+            )
             report.add(CheckResult(
                 name="finite_values",
                 status=status,

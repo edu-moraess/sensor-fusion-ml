@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import numbers
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
@@ -142,6 +143,7 @@ class DataValidator:
             },
         )
 
+        self._check_contract_configuration(report)
         if len(frames) < self.contract.min_frames:
             report.add(CheckResult(
                 name="min_frames",
@@ -280,12 +282,99 @@ class DataValidator:
                 details={"present": [m.value for m in present]},
             ))
 
+    def _check_contract_configuration(self, report: ValidationReport) -> None:
+        errors = []
+        ratio = self.contract.max_nan_ratio
+        if not np.isfinite(ratio) or not 0.0 <= ratio <= 1.0:
+            errors.append("max_nan_ratio must be finite and between 0 and 1")
+        if self.contract.min_frames < 1:
+            errors.append("min_frames must be >= 1")
+        for name in ("max_time_gap_s", "max_observation_time_offset_s"):
+            value = getattr(self.contract, name)
+            if value is not None and (not np.isfinite(value) or value < 0):
+                errors.append(f"{name} must be finite and >= 0 when set")
+        report.add(CheckResult(
+            name="contract_configuration",
+            status=ValidationStatus.FAIL if errors else ValidationStatus.PASS,
+            message="; ".join(errors) if errors else "Contract thresholds are valid",
+            details={"errors": errors},
+        ))
+
     def _check_timestamps(
         self, frames: Sequence[Frame], report: ValidationReport
     ) -> None:
-        ts = [f.timestamp.to_seconds() for f in frames]
-        if not ts:
+        frame_ts = [f.timestamp.to_seconds() for f in frames]
+        invalid_frames = [
+            f.frame_id for f, value in zip(frames, frame_ts)
+            if not np.isfinite(value)
+        ]
+        invalid_observations = []
+        offsets = []
+        for f, frame_time in zip(frames, frame_ts):
+            for modality, obs in f.observations.items():
+                obs_time = obs.timestamp.to_seconds()
+                if not np.isfinite(obs_time):
+                    invalid_observations.append({
+                        "frame_id": f.frame_id,
+                        "modality": modality.value,
+                        "sensor_id": obs.sensor_id,
+                    })
+                elif np.isfinite(frame_time):
+                    offsets.append({
+                        "frame_id": f.frame_id,
+                        "modality": modality.value,
+                        "sensor_id": obs.sensor_id,
+                        "offset_s": abs(obs_time - frame_time),
+                    })
+
+        invalid = bool(invalid_frames or invalid_observations)
+        report.add(CheckResult(
+            name="timestamp_finiteness",
+            status=ValidationStatus.FAIL if invalid else ValidationStatus.PASS,
+            message=(
+                f"Non-finite timestamps: {len(invalid_frames)} frames, "
+                f"{len(invalid_observations)} observations"
+                if invalid else "Frame and observation timestamps are finite"
+            ),
+            details={
+                "invalid_frame_ids": invalid_frames[:50],
+                "invalid_observations": invalid_observations[:50],
+            },
+        ))
+
+        tolerance = self.contract.max_observation_time_offset_s
+        if tolerance is not None:
+            out_of_tolerance = [
+                item for item in offsets if item["offset_s"] > tolerance
+            ]
+            report.add(CheckResult(
+                name="observation_time_alignment",
+                status=ValidationStatus.FAIL if out_of_tolerance else ValidationStatus.PASS,
+                message=(
+                    f"{len(out_of_tolerance)} observations exceed frame timestamp tolerance"
+                    if out_of_tolerance else "Observation timestamps are within frame tolerance"
+                ),
+                details={
+                    "tolerance_s": tolerance,
+                    "max_offset_s": max((item["offset_s"] for item in offsets), default=0.0),
+                    "out_of_tolerance": out_of_tolerance[:50],
+                },
+            ))
+
+        if not frame_ts or invalid_frames:
+            if invalid_frames:
+                report.add(CheckResult(
+                    name="timestamp_order",
+                    status=ValidationStatus.BLOCKED,
+                    message="Cannot verify frame timestamp order while non-finite timestamps exist",
+                ))
+                report.add(CheckResult(
+                    name="timestamp_uniqueness",
+                    status=ValidationStatus.BLOCKED,
+                    message="Cannot verify timestamp uniqueness while non-finite timestamps exist",
+                ))
             return
+        ts = frame_ts
 
         is_sorted = all(ts[i] <= ts[i + 1] for i in range(len(ts) - 1))
         if self.contract.require_sorted_timestamps and not is_sorted:
@@ -345,12 +434,10 @@ class DataValidator:
             for obs in f.observations.values():
                 if not obs.is_valid:
                     continue
-                arr = self._extract_numeric(obs.data)
-                if arr is None:
-                    continue
-                total_values += arr.size
-                nan_count += int(np.isnan(arr).sum())
-                inf_count += int(np.isinf(arr).sum())
+                for _, arr in self._extract_numeric_arrays(obs.data):
+                    total_values += arr.size
+                    nan_count += int(np.isnan(arr).sum())
+                    inf_count += int(np.isinf(arr).sum())
 
         if total_values == 0:
             report.add(CheckResult(
@@ -387,21 +474,29 @@ class DataValidator:
         self, frames: Sequence[Frame], report: ValidationReport
     ) -> None:
         """Lightweight consistency check: same modality should have compatible shapes."""
-        shapes: Dict[SensorModality, List[Tuple]] = {}
+        fixed_shape_modalities = {
+            SensorModality.RGB,
+            SensorModality.GNSS,
+            SensorModality.IMU,
+            SensorModality.ODOMETRY,
+        }
+        shapes: Dict[Tuple[SensorModality, str], List[Tuple]] = {}
         for f in frames:
             for m, obs in f.observations.items():
-                if not obs.is_valid:
+                if not obs.is_valid or m not in fixed_shape_modalities:
                     continue
-                arr = self._extract_numeric(obs.data)
-                if arr is not None:
-                    shapes.setdefault(m, []).append(arr.shape)
+                for payload_path, arr in self._extract_numeric_arrays(obs.data):
+                    shapes.setdefault((m, payload_path), []).append(arr.shape)
 
         inconsistent = []
-        for m, sh_list in shapes.items():
-            unique = set(sh_list)
+        for (modality, payload_path), shape_list in shapes.items():
+            unique = set(shape_list)
             if len(unique) > 1:
-                if m == SensorModality.RGB:
-                    inconsistent.append((m.value, list(unique)[:5]))
+                inconsistent.append({
+                    "modality": modality.value,
+                    "payload_path": payload_path,
+                    "shapes": [list(shape) for shape in sorted(unique, key=str)[:5]],
+                })
 
         if inconsistent:
             report.add(CheckResult(
@@ -418,11 +513,20 @@ class DataValidator:
             ))
 
     @staticmethod
-    def _extract_numeric(data: Any) -> Optional[np.ndarray]:
-        if isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.number):
-            return data
-        if isinstance(data, dict):
-            for v in data.values():
-                if isinstance(v, np.ndarray) and np.issubdtype(v.dtype, np.number):
-                    return v
-        return None
+    def _extract_numeric_arrays(data: Any, path: str = "$") -> List[Tuple[str, np.ndarray]]:
+        """Return numeric ndarrays and numeric scalar leaves nested in a payload."""
+        found: List[Tuple[str, np.ndarray]] = []
+        if isinstance(data, np.ndarray):
+            if np.issubdtype(data.dtype, np.number):
+                found.append((path, data))
+        elif isinstance(data, dict):
+            for key, value in data.items():
+                found.extend(DataValidator._extract_numeric_arrays(value, f"{path}.{key}"))
+        elif isinstance(data, (list, tuple)):
+            for index, value in enumerate(data):
+                found.extend(DataValidator._extract_numeric_arrays(value, f"{path}[{index}]"))
+        elif isinstance(data, numbers.Number) and not isinstance(data, (bool, np.bool_)):
+            scalar = np.asarray(data)
+            if np.issubdtype(scalar.dtype, np.number):
+                found.append((path, scalar))
+        return found

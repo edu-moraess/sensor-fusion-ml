@@ -128,3 +128,127 @@ def test_split_clean():
         test_ids=["s4"],
     )
     assert report.status == ValidationStatus.PASS
+
+
+
+def _check(report, name):
+    return next(check for check in report.checks if check.name == name)
+
+
+def test_fail_nonfinite_frame_timestamp():
+    frames = _make_frames(5)
+    frames[2].timestamp.value = np.nan
+    report = DataValidator(DataContract(
+        name="timestamp_finite",
+        required_modalities=[SensorModality.GNSS],
+    )).validate_frames(frames)
+    assert report.status == ValidationStatus.BLOCKED
+    assert _check(report, "timestamp_finiteness").status == ValidationStatus.FAIL
+    assert _check(report, "timestamp_order").status == ValidationStatus.BLOCKED
+
+
+def test_fail_nonfinite_observation_timestamp():
+    frames = _make_frames(5)
+    frames[2].observations[SensorModality.GNSS].timestamp.value = np.inf
+    report = DataValidator(DataContract(
+        name="observation_timestamp_finite",
+        required_modalities=[SensorModality.GNSS],
+    )).validate_frames(frames)
+    assert report.status == ValidationStatus.FAIL
+    assert _check(report, "timestamp_finiteness").status == ValidationStatus.FAIL
+
+
+def test_observation_time_alignment_is_configurable():
+    frames = _make_frames(5)
+    frames[2].observations[SensorModality.GNSS].timestamp.value += 0.25
+    contract = DataContract(
+        name="alignment",
+        required_modalities=[SensorModality.GNSS],
+        max_observation_time_offset_s=0.1,
+    )
+    report = DataValidator(contract).validate_frames(frames)
+    assert report.status == ValidationStatus.FAIL
+    check = _check(report, "observation_time_alignment")
+    assert check.status == ValidationStatus.FAIL
+    assert check.details["max_offset_s"] == pytest.approx(0.25)
+
+
+def test_nested_payload_checks_all_numeric_arrays():
+    frames = _make_frames(5)
+    frames[1].observations[SensorModality.GNSS].data = {
+        "position": np.array([1.0, 2.0, 3.0]),
+        "quality": {"residuals": np.array([0.0, np.inf])},
+    }
+    report = DataValidator(DataContract(
+        name="nested_payload",
+        required_modalities=[SensorModality.GNSS],
+    )).validate_frames(frames)
+    assert report.status == ValidationStatus.FAIL
+    check = _check(report, "finite_values")
+    assert check.details["inf_count"] == 1
+
+
+@pytest.mark.parametrize(
+    ("bad_value", "expected_count_key"),
+    [
+        (float("nan"), "nan_count"),
+        (float("inf"), "inf_count"),
+    ],
+)
+def test_nested_python_numeric_scalars_are_checked(bad_value, expected_count_key):
+    frames = _make_frames(5)
+    frames[1].observations[SensorModality.GNSS].data = {
+        "quality": {"residuals": [0.1, (0.2, bad_value)]},
+        "label": "must not be treated as numeric",
+    }
+
+    report = DataValidator(DataContract(
+        name="nested_python_scalar",
+        required_modalities=[SensorModality.GNSS],
+        require_finite=True,
+        max_nan_ratio=0.0,
+    )).validate_frames(frames)
+
+    assert report.status == ValidationStatus.FAIL
+    check = _check(report, "finite_values")
+    assert check.status == ValidationStatus.FAIL
+    assert check.details[expected_count_key] == 1
+
+
+def test_dimension_consistency_checks_fixed_shape_modalities():
+    frames = _make_frames(5)
+    frames[2].observations[SensorModality.GNSS].data = np.zeros(4)
+    report = DataValidator(DataContract(
+        name="gnss_shape",
+        required_modalities=[SensorModality.GNSS],
+    )).validate_frames(frames)
+    check = _check(report, "dimension_consistency")
+    assert check.status == ValidationStatus.PASS_WITH_WARNINGS
+    assert check.details["inconsistent"][0]["modality"] == "gnss"
+
+
+def test_dimension_consistency_allows_variable_lidar_point_counts():
+    frames = _make_frames(5)
+    frames[0].observations[SensorModality.LIDAR] = Observation(
+        SensorModality.LIDAR, frames[0].timestamp, np.zeros((10, 3))
+    )
+    frames[1].observations[SensorModality.LIDAR] = Observation(
+        SensorModality.LIDAR, frames[1].timestamp, np.zeros((25, 3))
+    )
+    report = DataValidator(DataContract(
+        name="variable_lidar",
+        required_modalities=[SensorModality.GNSS],
+    )).validate_frames(frames)
+    check = _check(report, "dimension_consistency")
+    assert check.status == ValidationStatus.PASS
+
+
+@pytest.mark.parametrize("ratio", [-0.1, 1.1, np.nan, np.inf])
+def test_invalid_nan_ratio_fails_contract_configuration(ratio):
+    report = DataValidator(DataContract(
+        name="invalid_ratio",
+        required_modalities=[SensorModality.GNSS],
+        max_nan_ratio=ratio,
+    )).validate_frames(_make_frames(3))
+    assert report.status == ValidationStatus.FAIL
+    assert _check(report, "contract_configuration").status == ValidationStatus.FAIL

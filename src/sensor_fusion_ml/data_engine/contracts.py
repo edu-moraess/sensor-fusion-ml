@@ -134,7 +134,8 @@ class DataContract:
     require_sorted_timestamps: bool = True
     require_unique_timestamps: bool = True
     max_time_gap_s: Optional[float] = None
-    units: Dict[str, str] = field(default_factory=lambda: {
+    max_observation_time_offset_s: Optional[float] = None
+    units: Dict[str, str> = field(default_factory=lambda: {
         "position": "m",
         "velocity": "m/s",
         "acceleration": "m/s^2",
@@ -157,6 +158,7 @@ class DataContract:
             "require_sorted_timestamps": self.require_sorted_timestamps,
             "require_unique_timestamps": self.require_unique_timestamps,
             "max_time_gap_s": self.max_time_gap_s,
+            "max_observation_time_offset_s": self.max_observation_time_offset_s,
             "units": self.units,
             "license": self.license,
             "provenance": self.provenance,

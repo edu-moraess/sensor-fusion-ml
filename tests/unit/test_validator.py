@@ -71,7 +71,28 @@ def test_fail_nan():
     )
     v = DataValidator(contract)
     report = v.validate_frames(_make_frames(8, with_nan=True))
-    assert report.status in (ValidationStatus.FAIL, ValidationStatus.PASS_WITH_WARNINGS)
+    assert report.status == ValidationStatus.FAIL
+    finite_check = next(c for c in report.checks if c.name == "finite_values")
+    assert finite_check.status == ValidationStatus.FAIL
+
+
+def test_fail_infinity():
+    contract = DataContract(
+        name="no_infinity",
+        required_modalities=[SensorModality.GNSS],
+        min_frames=1,
+        require_finite=True,
+        max_nan_ratio=0.0,
+    )
+    frames = _make_frames(8)
+    frames[3].observations[SensorModality.GNSS].data[0] = np.inf
+
+    report = DataValidator(contract).validate_frames(frames)
+
+    assert report.status == ValidationStatus.FAIL
+    finite_check = next(c for c in report.checks if c.name == "finite_values")
+    assert finite_check.status == ValidationStatus.FAIL
+    assert finite_check.details["inf_count"] == 1
 
 
 def test_fail_unsorted():

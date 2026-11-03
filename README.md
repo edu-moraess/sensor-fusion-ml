@@ -22,7 +22,7 @@ Research-to-product path under ArqTech Labs. Designed to run first on **Google C
 | Kinematic trajectory baseline | **PASS** | ADE / FDE ready |
 | Unit tests | **PASS** | No network, no GPU, no external data required |
 | Real dataset loaders | **NOT RUN** | Intentionally deferred – licensing first |
-| Full multi-object tracker | **NOT RUN** | Association only |
+| Track Management Lifecycle | **PASS** | Isolated component tests (TrackManager + gated association + aging/expiration); no end-to-end or real-data evaluation |
 | Heavy training on real data | **NOT RUN** | Forbidden until data contracts pass |
 
 ---
@@ -51,7 +51,7 @@ pytest tests/unit -q
 
 ### Google Colab
 
-Open `notebooks/00_environment_and_audit.ipynb`.  
+Open `notebooks/00_environment_and_audit.ipynb`.
 The notebook:
 
 1. Inspects Python / PyTorch / GPU without installing anything.
@@ -70,7 +70,7 @@ sensor-fusion-ml/
 ├── src/sensor_fusion_ml/    # Installable package
 │   ├── data_engine/         # Contracts + Validator + Audit   ← Phase A
 │   ├── state_estimation/    # Kalman baseline                ← Phase C
-│   ├── tracking/            # Association
+│   ├── tracking/            # Association + TrackManager lifecycle
 │   ├── encoders/            # SmallCNN, SmallPointNet
 │   ├── fusion/              # MinimalFusionMLP               ← Phase D
 │   ├── trajectory/          # Kinematic baseline             ← Phase E

@@ -1,0 +1,137 @@
+{
+  "project": "ARQTECH LABS | VYRA",
+  "audit": "PPC Frame Audit v1.2",
+  "execution_date": "2026-11-10",
+  "dataset": "PPC Dataset / Nagoya / run1",
+  "status": "FRAME_AUDIT_REQUIRES_REVIEW",
+  "dataset_integrity": {
+    "imu_shape": [
+      153001,
+      8
+    ],
+    "reference_shape": [
+      7651,
+      14
+    ],
+    "imu_frequency_hz": 100.0001,
+    "reference_frequency_hz": 5,
+    "overlap_seconds": 1530,
+    "schema_mapping": "PASS"
+  },
+  "rotation_validation": {
+    "status": "PASS_NUMERICAL_ONLY",
+    "max_orthogonality_error": 5.515410169596886e-16,
+    "max_determinant_error": 6.661338147750939e-16,
+    "physical_convention_confirmed": false
+  },
+  "raw_sensor_statistics": {
+    "acceleration_axis_mean_m_s2": [
+      0.29020122776974,
+      -0.2438984135397621,
+      9.797603892442071
+    ],
+    "acceleration_axis_std_m_s2": [
+      0.4939596969721912,
+      0.3254410475993516,
+      0.40303219428165227
+    ],
+    "acceleration_norm_median_m_s2": 9.810031689462386,
+    "acceleration_norm_p95_m_s2": 10.371485372236044,
+    "gyro_axis_mean_rad_s": [
+      0.0006135823159374396,
+      0.006651833224539949,
+      0.00021650439717237915
+    ],
+    "gyro_axis_std_rad_s": [
+      0.012372329825943804,
+      0.01414259441708791,
+      0.05854636596708791
+    ],
+    "gyro_norm_median_rad_s": 0.008593476009231053
+  },
+  "accelerometer_metrics": [
+    {
+      "axis": "X",
+      "correlation": 0.961309,
+      "slope": 1.004099,
+      "bias_m_s2": -0.094013,
+      "rmse_m_s2": 0.165336,
+      "residual_std_m_s2": 0.136005
+    },
+    {
+      "axis": "Y",
+      "correlation": -0.83832,
+      "slope": -1.007733,
+      "bias_m_s2": -0.396648,
+      "rmse_m_s2": 0.695704,
+      "residual_std_m_s2": 0.571554
+    },
+    {
+      "axis": "Z",
+      "correlation": -0.444321,
+      "slope": -1.610251,
+      "bias_m_s2": 19.591515,
+      "rmse_m_s2": 19.596444,
+      "residual_std_m_s2": 0.439502
+    }
+  ],
+  "gyroscope_metrics": [
+    {
+      "axis": "X",
+      "correlation": 0.848169,
+      "slope": 0.796901,
+      "bias_rad_s": 0.000354,
+      "rmse_rad_s": 0.005553,
+      "residual_std_rad_s": 0.005542
+    },
+    {
+      "axis": "Y",
+      "correlation": -0.888526,
+      "slope": -0.74341,
+      "bias_rad_s": 0.006669,
+      "rmse_rad_s": 0.021737,
+      "residual_std_rad_s": 0.020688
+    },
+    {
+      "axis": "Z",
+      "correlation": -0.999539,
+      "slope": -0.999422,
+      "bias_rad_s": 0.003268,
+      "rmse_rad_s": 0.116843,
+      "residual_std_rad_s": 0.116798
+    }
+  ],
+  "lever_arm": {
+    "nagoya_body_m": [
+      0.593,
+      -0.67,
+      -1.216
+    ],
+    "applied": false,
+    "reference_position_origin_confirmed": false
+  },
+  "execution_scope": {
+    "data_modified": false,
+    "axis_flips_applied": false,
+    "eskf_executed": false,
+    "training_executed": false,
+    "real_vs_synthetic_benchmark_executed": false,
+    "github_actions_added": false
+  },
+  "limitations": [
+    "Euler convention and heading definition not independently confirmed.",
+    "Reference acceleration differentiated from 5 Hz velocity.",
+    "Reference angular rates derived from 5 Hz attitude samples.",
+    "Numerical SO(3) validity does not prove physical frame correctness.",
+    "Lever arm not applied; physical origin of reference position unknown.",
+    "Trajectory preview integrated velocity and is not authoritative position truth."
+  ],
+  "next_gate": "PPC Frame Audit v1.3 — Convention Isolation",
+  "archive_status": {
+    "summary_markdown_committed": true,
+    "machine_readable_summary_committed": true,
+    "executed_ipynb_committed": false,
+    "full_resolution_plots_committed": false,
+    "original_raw_audit_json_committed": false
+  }
+}

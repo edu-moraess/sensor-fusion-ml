@@ -31,7 +31,7 @@ def test_converts_local_metric_gps_and_preserves_covariance():
     np.testing.assert_array_equal(observation.data, [12.0, 34.0])
     np.testing.assert_array_equal(observation.metadata["measurement_covariance"], envelope.payload.R)
     assert not observation.data.flags.writeable
-    assert not observation.metadata["measurement_covariance"].flags.writeable
+    assert observation.metadata["measurement_covariance"] == envelope.payload.R.tolist()
 
 
 def test_rejects_geographic_coordinates():

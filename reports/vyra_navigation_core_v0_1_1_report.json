@@ -1,0 +1,28 @@
+{
+  "project": "Vyra Navigation Core",
+  "version": "0.1.1",
+  "validation_type": "deterministic_mathematical_unit_tests",
+  "execution_environment": "Google Colab",
+  "tests_run": 10,
+  "failures": 0,
+  "errors": 0,
+  "status": "PASS",
+  "elapsed_seconds": 0.379,
+  "scope": {
+    "enu_frame": "implemented",
+    "quaternion": "implemented",
+    "ins_nominal_propagation": "implemented",
+    "error_state_15d": "implemented",
+    "covariance_propagation": "first_order_discretization",
+    "gnss_position_update": "implemented",
+    "zupt_velocity_update": "implemented",
+    "real_dataset_validation": "not_performed",
+    "physical_imu_calibration": "not_performed",
+    "gnss_positioning_from_rinex": "not_performed"
+  },
+  "notes": [
+    "IMU noise defaults are software-test placeholders, not calibrated PPC parameters.",
+    "ZUPT requires an independent stationary detector.",
+    "This test suite does not validate physical navigation accuracy or full ESKF consistency."
+  ]
+}

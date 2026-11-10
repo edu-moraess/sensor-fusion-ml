@@ -90,7 +90,8 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
             "vyra_artifact_id": str(envelope.artifact_id),
             "producer": str(envelope.producer),
             "source_sensor": "gps",
-            "measurement_covariance": covariance_copy,
+            "quality_status": "not_provided_by_source",
+            "measurement_covariance": covariance_copy.tolist(),
             "covariance_units": "m^2",
             "temporal_reference": {
                 "event_time": float(event_time),

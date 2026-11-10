@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import pytest
 from types import SimpleNamespace
@@ -29,9 +30,9 @@ def test_converts_local_metric_gps_and_preserves_covariance():
     assert observation.frame.value == "local_cartesian"
     assert observation.timestamp.value == 1.25
     np.testing.assert_array_equal(observation.data, [12.0, 34.0])
-    np.testing.assert_array_equal(observation.metadata["measurement_covariance"], envelope.payload.R)
     assert not observation.data.flags.writeable
     assert observation.metadata["measurement_covariance"] == envelope.payload.R.tolist()
+    json.dumps(observation.to_dict())
 
 
 def test_rejects_geographic_coordinates():

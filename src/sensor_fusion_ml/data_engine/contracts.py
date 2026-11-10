@@ -33,6 +33,7 @@ class CoordinateFrame(str, Enum):
     ENU = "enu"          # East-North-Up
     NED = "ned"          # North-East-Down
     ECEF = "ecef"
+    LOCAL_CARTESIAN = "local_cartesian"  # explicit local metric frame
     PIXEL = "pixel"      # image plane – never mix with metric without projection
     UNKNOWN = "unknown"
 

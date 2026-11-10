@@ -1,0 +1,24 @@
+{
+  "project": "Vyra Navigation Core",
+  "audit": "PPC Frame Audit v1.2",
+  "status": "FRAME_AUDIT_REQUIRES_REVIEW",
+  "notebook": {
+    "path": "notebooks/archive/ppc_frame_audit_v1_2_original.ipynb",
+    "sha256": "b093a0ecf1013b231ef900fe26255b81f617250415f695cd6ec8f50ee3f21cf8",
+    "cells": 79,
+    "outputs": 122,
+    "execution_counts_present": 0
+  },
+  "source_zip_sha256": "06bbb6118800f4298556554ce51583fd19361911946f9ca195a478d08d849ac7",
+  "artifacts": {
+    "01_accelerometer_v1_2.png": "21a896e4e731d83ab7a8bb62b0130dbe568cad7ddb770748c6ccea0bd1c5b881",
+    "02_gyroscope_v1_2.png": "f1efd1e7381673861a2686b118dd17bfadfa7cbd7f38a348b527617fb132c736",
+    "03_trajectory_preview.png": "ea0e4b5d342e8a6c468dc83e3a8d5b9047d083d9e525cc80b89e1db9308529a8",
+    "04_reference_velocity.png": "68e3d53c144262889364986635dae6e8b8fcf5b43712dd9e6dbefd6a8f05fad0",
+    "05_residual_distributions.png": "f2288bee4f081688e9ce64147547d2424cb20659a0dceebafbdd912c317b1d3b",
+    "06_reference_attitude.png": "4af65b15339490988281f94dab7c50ed4671b1eb20e856d9f3c22b7ffeae9d1a",
+    "ppc_frame_audit_v1_2_report.json": "2b4a56025593476e099f70e0c7f323cc40b8ace2f146a6f4e889096314de0814"
+  },
+  "github_base_branch": "docs/ppc-frame-audit-v1.2",
+  "previous_head": "80cfcddbb4511c166377450fe1ee08e59a620bdb"
+}

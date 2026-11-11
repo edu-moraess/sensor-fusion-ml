@@ -142,14 +142,18 @@ only an Observation that already declares:
 - ENU covariance with variable order `("east", "north")`;
 - explicit CRS, origin, transform ID and transform provenance;
 - a measurement reference matching the ESKF state's reference;
-- temporal synchronization explicitly marked `synchronized`;
+- temporal synchronization explicitly marked `synchronized`, with the Observation timestamp source matching the declared clock domain;
 - finite synchronization uncertainty within a caller-supplied tolerance;
+- measurement timestamp within a caller-supplied offset of an explicit ESKF state time;
 - a positive-definite 2x2 covariance.
 
-It performs no transform or clock synchronization. The current RoboQA consumer
-output is `LOCAL_CARTESIAN` and the KITTI time basis is not synchronized, so
-it is expected to be rejected by this ESKF gate until a separately validated
-spatial transform and time-alignment path exists.
+It performs no transform or clock synchronization. The caller must supply
+`state_time_s`, `max_measurement_time_offset_s`, and
+`max_synchronization_uncertainty_s`; these tolerances are application policy,
+not defaults inferred by the adapter. The current RoboQA consumer output is
+`LOCAL_CARTESIAN` and the KITTI time basis is not synchronized, so it is
+expected to be rejected by this ESKF gate until a separately validated spatial
+transform and time-alignment path exists.
 
 ## API
 

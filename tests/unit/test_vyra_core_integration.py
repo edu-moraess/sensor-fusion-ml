@@ -34,6 +34,11 @@ def test_converts_local_metric_gps_and_preserves_covariance():
     np.testing.assert_array_equal(observation.data, [12.0, 34.0])
     assert not observation.data.flags.writeable
     assert observation.metadata["measurement_covariance"] == envelope.payload.R.tolist()
+    assert observation.uncertainty.status.value == "provided"
+    assert observation.uncertainty.variable_order == ("x", "y")
+    assert observation.uncertainty.units == ("m", "m")
+    assert observation.uncertainty.frame.value == "local_cartesian"
+    np.testing.assert_array_equal(observation.uncertainty.covariance, envelope.payload.R)
     json.dumps(observation.to_dict())
 
 

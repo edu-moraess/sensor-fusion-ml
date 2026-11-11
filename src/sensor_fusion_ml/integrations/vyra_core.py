@@ -2,7 +2,10 @@
 from __future__ import annotations
 from typing import Any
 import numpy as np
-from sensor_fusion_ml.data_engine.contracts import CoordinateFrame, Observation, SensorModality, Timestamp, TimeUnit
+from sensor_fusion_ml.data_engine.contracts import (
+    CoordinateFrame, MeasurementUncertainty, Observation, SensorModality,
+    Timestamp, TimeUnit, UncertaintyStatus,
+)
 
 
 class VyraEnvelopeError(ValueError):
@@ -86,6 +89,14 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
         quality=None,
         is_valid=True,
         is_estimate=False,
+        uncertainty=MeasurementUncertainty(
+            status=UncertaintyStatus.PROVIDED,
+            covariance=covariance_copy,
+            variable_order=("x", "y"),
+            units=("m", "m"),
+            frame=CoordinateFrame.LOCAL_CARTESIAN,
+            provenance=f"vyra-artifact:{envelope.artifact_id}",
+        ),
         metadata={
             "vyra_artifact_id": str(envelope.artifact_id),
             "producer": str(envelope.producer),

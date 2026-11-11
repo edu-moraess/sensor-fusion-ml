@@ -33,17 +33,28 @@ Measurement timestamp. KITTI OXTS timestamps in the current RoboQA loader are
 approximated at 10 Hz; callers must not label these as UTC or synchronized
 wall-clock time.
 
-The native 2x2 covariance `R` is validated and copied into
-`Observation.metadata["measurement_covariance"]` as a JSON-serializable
-list. The Observation contract has no first-class covariance field.
+The native 2x2 covariance `R` is validated and represented as the
+first-class `Observation.uncertainty` contract:
+
+- status: `provided`
+- covariance: native 2x2 matrix
+- variable order: `("x", "y")`
+- units: `("m", "m")`
+- frame: `LOCAL_CARTESIAN`
+- provenance: source Vyra artifact ID
+
+For transition compatibility, the adapter also retains the legacy
+`metadata["measurement_covariance"]` JSON list. The typed uncertainty field
+is authoritative; consumers must not infer covariance semantics from arbitrary
+metadata.
 
 ## Deliberate limitation
 
 This adapter does not call `ConstantVelocityKF`. That filter currently uses
 a configured scalar isotropic measurement-noise matrix and cannot consume an
-arbitrary per-observation covariance `R`. A later filter API change must
-explicitly accept and validate observation covariance before this data is
-used in a Kalman update.
+arbitrary per-observation covariance `R`. A later filter API change must explicitly accept and validate the typed
+observation covariance before this data is used in a Kalman update. This F-01
+contract change does not alter either estimator's update equations.
 
 ## API
 

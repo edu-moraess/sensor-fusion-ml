@@ -5,7 +5,8 @@ from sensor_fusion_ml.navigation.vyra_eskf import (
     quat_from_rotation_vector, quat_to_rotation_matrix,
     propagate_nominal, continuous_error_matrices,
     propagate_covariance, covariance_diagnostics,
-    gnss_position_update, gnss_horizontal_position_update,\n    GNSS_2D_HORIZONTAL_MAPPING_ID, zupt_update,
+    gnss_position_update, gnss_horizontal_position_update,
+    GNSS_2D_HORIZONTAL_MAPPING_ID, zupt_update,
 )
 
 

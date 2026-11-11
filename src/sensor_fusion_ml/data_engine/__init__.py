@@ -12,7 +12,8 @@ Responsible for:
 - Reproducible JSON reports with status: PASS | PASS_WITH_WARNINGS | FAIL | BLOCKED | NOT_RUN
 """
 
-from .contracts import (DataContract, SensorModality, Observation, Frame,\n                        MeasurementUncertainty, UncertaintyStatus)
+from .contracts import (DataContract, SensorModality, Observation, Frame,
+                        MeasurementUncertainty, UncertaintyStatus)
 from .validator import DataValidator, ValidationReport, ValidationStatus
 from .audit import audit_environment, EnvironmentReport
 
@@ -20,7 +21,9 @@ __all__ = [
     "DataContract",
     "SensorModality",
     "Observation",
-    "Frame",\n    "MeasurementUncertainty",\n    "UncertaintyStatus",
+    "Frame",
+    "MeasurementUncertainty",
+    "UncertaintyStatus",
     "DataValidator",
     "ValidationReport",
     "ValidationStatus",

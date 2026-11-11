@@ -41,7 +41,7 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
         raise VyraEnvelopeError(f"GPS R must have shape (2, 2), received {covariance.shape}")
     if not np.all(np.isfinite(z)) or not np.all(np.isfinite(covariance)):
         raise VyraEnvelopeError("GPS z and R must contain only finite values")
-    if not np.allclose(covariance, covariance.T, atol=1e-8):
+    if not np.allclose(covariance, covariance.T, rtol=1e-7, atol=1e-9):
         raise VyraEnvelopeError("GPS R must be symmetric")
     if float(np.linalg.eigvalsh((covariance + covariance.T) / 2.0).min()) < -1e-9:
         raise VyraEnvelopeError("GPS R must be positive semidefinite")

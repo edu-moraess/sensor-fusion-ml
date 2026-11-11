@@ -55,8 +55,7 @@ def test_data_contract_to_dict():
     assert d["license"] == "MIT"
 
 
-def _make_observation(quality_marker=...):
-    kwargs = {} if quality_marker is ... else {"quality": quality_marker}
+def _make_observation(**kwargs):
     return Observation(
         modality=SensorModality.DETECTION,
         timestamp=Timestamp(1.0),
@@ -74,15 +73,16 @@ def test_observation_quality_defaults_to_none_and_serializes():
 
 @pytest.mark.parametrize("quality", [0.0, 0.25, 1.0, np.float32(0.5)])
 def test_observation_accepts_finite_quality_in_range(quality):
-    observation = _make_observation(quality)
+    observation = _make_observation(quality=quality)
     assert observation.quality == pytest.approx(float(quality))
     assert isinstance(observation.quality, float)
 
 
 @pytest.mark.parametrize(
     "quality",
-    [True, False, "0.5", float("nan"), float("inf"), float("-inf"), -0.01, 1.01],
+    [True, False, np.bool_(True), "0.5", float("nan"), float("inf"),
+     float("-inf"), -0.01, 1.01],
 )
 def test_observation_rejects_invalid_quality(quality):
     with pytest.raises(ValueError, match="quality"):
-        _make_observation(quality)
+        _make_observation(quality=quality)

@@ -152,3 +152,18 @@ def test_measurement_uncertainty_supports_explicit_nonprovided_states(status):
     uncertainty = MeasurementUncertainty(status=status)
     assert uncertainty.covariance is None
     assert uncertainty.to_dict()["status"] == status.value
+
+
+def test_observation_rejects_uncertainty_in_a_different_frame():
+    uncertainty = MeasurementUncertainty(
+        status=UncertaintyStatus.PROVIDED,
+        covariance=np.eye(2),
+        variable_order=("x", "y"),
+        units=("m", "m"),
+        frame=CoordinateFrame.ENU,
+    )
+    with pytest.raises(ValueError, match="uncertainty frame"):
+        _make_observation(
+            frame=CoordinateFrame.LOCAL_CARTESIAN,
+            uncertainty=uncertainty,
+        )

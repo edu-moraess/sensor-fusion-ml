@@ -127,6 +127,16 @@ def mpe_detection_envelope_to_observation(envelope: Any) -> Observation:
         raise VyraEnvelopeError(f"Invalid MPE image bbox geometry: {exc}") from exc
     image = geometry["image"]
     image_reference = _required_text(image["reference"], "geometry.image.reference")
+    image_source_id = _required_text(image["source_id"], "geometry.image.source_id")
+    image_sequence = image["sequence"]
+    if image_source_id != source_id:
+        raise VyraEnvelopeError(
+            "Geometry image source_id must match Detection Stamp source_id"
+        )
+    if image_sequence != sequence:
+        raise VyraEnvelopeError(
+            "Geometry image sequence must match Detection Stamp sequence"
+        )
     expected_origin = f"top-left:{image_reference}"
     if spatial.origin != expected_origin:
         raise VyraEnvelopeError(
@@ -185,6 +195,8 @@ def mpe_detection_envelope_to_observation(envelope: Any) -> Observation:
         "evidence_kind": evidence,
         "geometry_profile": IMAGE_BBOX_XYWH_V1,
         "image_reference": image_reference,
+        "image_source_id": image_source_id,
+        "image_sequence": image_sequence,
         "image_width": image["width"],
         "image_height": image["height"],
         "capture_timestamp_original": original_timestamp,

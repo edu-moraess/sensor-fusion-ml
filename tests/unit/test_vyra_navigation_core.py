@@ -160,9 +160,9 @@ def test_gnss_2d_horizontal_update_rejects_unknown_mapping():
 def test_gnss_2d_horizontal_update_rejects_invalid_shapes_and_nonfinite_values():
     state = NavigationState()
     P = np.eye(15)
-    with np.testing.assert_raises_regex(ValueError, "shape \(2,\)"):
+    with np.testing.assert_raises_regex(ValueError, r"shape \(2,\)"):
         _horizontal_update(state, P, position=(1.0, 2.0, 3.0))
-    with np.testing.assert_raises_regex(ValueError, "shape \(2, 2\)"):
+    with np.testing.assert_raises_regex(ValueError, r"shape \(2, 2\)"):
         _horizontal_update(state, P, covariance=np.eye(3))
     with np.testing.assert_raises_regex(ValueError, "must be finite"):
         _horizontal_update(state, P, position=(np.nan, 2.0))

@@ -2,7 +2,11 @@ import json
 import numpy as np
 import pytest
 from types import SimpleNamespace
-from sensor_fusion_ml.integrations.vyra_core import VyraEnvelopeError, roboqa_gps_envelope_to_observation
+from sensor_fusion_ml.integrations.vyra_core import (
+    RoboQAGPSConsumerAdapter,
+    VyraEnvelopeError,
+    roboqa_gps_envelope_to_observation,
+)
 
 
 def make_envelope():
@@ -86,3 +90,16 @@ def test_rejects_wrong_payload_type():
     envelope.artifact_type = "track"
     with pytest.raises(VyraEnvelopeError, match="gps_measurement"):
         roboqa_gps_envelope_to_observation(envelope)
+
+
+
+def test_roboqa_consumer_adapter_implements_core_consumer_shape():
+    adapter = RoboQAGPSConsumerAdapter()
+    assert adapter.name == "roboqa-gps-consumer"
+    assert adapter.version == "0.1.0"
+    assert adapter.consumer_module_id == "vyra.sensor_fusion"
+    assert callable(adapter.from_envelope)
+
+    observation = adapter.from_envelope(make_envelope())
+    assert observation.modality.value == "gnss"
+    assert observation.frame.value == "local_cartesian"

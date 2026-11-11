@@ -77,6 +77,94 @@ class Pose3D:
             raise ValueError(f"orientation must be (4,) or (3,3), got {self.orientation.shape}")
 
 
+class UncertaintyStatus(str, Enum):
+    """Availability state for measurement uncertainty."""
+
+    PROVIDED = "provided"
+    UNKNOWN = "unknown"
+    NOT_COMPUTED = "not_computed"
+    NOT_APPLICABLE = "not_applicable"
+    UNAVAILABLE = "unavailable"
+    REDACTED = "redacted"
+
+
+@dataclass(frozen=True)
+class MeasurementUncertainty:
+    """Typed covariance for one observation, with explicit semantics.
+
+    Covariance is expressed in the order and units declared below and in the
+    declared coordinate frame. This contract stores covariance only; other
+    uncertainty representations require their own typed extension.
+    """
+
+    status: UncertaintyStatus = UncertaintyStatus.UNKNOWN
+    covariance: Optional[np.ndarray] = None
+    variable_order: Tuple[str, ...] = ()
+    units: Tuple[str, ...] = ()
+    frame: Optional[CoordinateFrame] = None
+    provenance: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        try:
+            status = UncertaintyStatus(self.status)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("status must be a valid UncertaintyStatus") from exc
+        object.__setattr__(self, "status", status)
+
+        if status == UncertaintyStatus.PROVIDED:
+            if self.covariance is None:
+                raise ValueError("PROVIDED uncertainty requires covariance")
+            matrix = np.array(self.covariance, dtype=np.float64, copy=True)
+            if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1] or matrix.shape[0] == 0:
+                raise ValueError("covariance must be a non-empty square matrix")
+            if not np.all(np.isfinite(matrix)):
+                raise ValueError("covariance must contain only finite values")
+            if not np.allclose(matrix, matrix.T, rtol=1e-7, atol=1e-9):
+                raise ValueError("covariance must be symmetric")
+            if float(np.linalg.eigvalsh((matrix + matrix.T) / 2.0).min()) < -1e-9:
+                raise ValueError("covariance must be positive semidefinite")
+            order = tuple(self.variable_order)
+            units = tuple(self.units)
+            if len(order) != matrix.shape[0] or any(not isinstance(v, str) or not v.strip() for v in order):
+                raise ValueError("variable_order must name each covariance dimension")
+            if len(set(order)) != len(order):
+                raise ValueError("variable_order entries must be unique")
+            if len(units) != matrix.shape[0] or any(not isinstance(v, str) or not v.strip() for v in units):
+                raise ValueError("units must declare each covariance dimension")
+            if self.frame is None:
+                raise ValueError("PROVIDED uncertainty requires an explicit coordinate frame")
+            try:
+                frame = CoordinateFrame(self.frame)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("frame must be a valid CoordinateFrame") from exc
+            matrix.setflags(write=False)
+            object.__setattr__(self, "covariance", matrix)
+            object.__setattr__(self, "variable_order", order)
+            object.__setattr__(self, "units", units)
+            object.__setattr__(self, "frame", frame)
+            if self.provenance is not None and (not isinstance(self.provenance, str) or not self.provenance.strip()):
+                raise ValueError("provenance must be a non-empty string or None")
+        else:
+            if self.covariance is not None:
+                raise ValueError(f"{status.value} uncertainty must not contain covariance")
+            if self.variable_order or self.units or self.frame is not None:
+                raise ValueError(f"{status.value} uncertainty must not declare covariance semantics")
+
+    @classmethod
+    def unknown(cls) -> "MeasurementUncertainty":
+        return cls(status=UncertaintyStatus.UNKNOWN)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "status": self.status.value,
+            "covariance": None if self.covariance is None else self.covariance.tolist(),
+            "variable_order": list(self.variable_order),
+            "units": list(self.units),
+            "frame": None if self.frame is None else self.frame.value,
+            "provenance": self.provenance,
+        }
+
+
 @dataclass
 class Observation:
     """Single sensor observation at a given time."""
@@ -89,8 +177,11 @@ class Observation:
     is_valid: bool = True
     is_estimate: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
+    uncertainty: MeasurementUncertainty = field(default_factory=MeasurementUncertainty.unknown)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.uncertainty, MeasurementUncertainty):
+            raise ValueError("uncertainty must be a MeasurementUncertainty instance")
         if self.quality is None:
             return
         if isinstance(self.quality, (bool, np.bool_)) or not isinstance(
@@ -104,6 +195,7 @@ class Observation:
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
+        d["uncertainty"] = self.uncertainty.to_dict()
         # numpy arrays are not JSON-serializable by default
         if isinstance(self.data, np.ndarray):
             d["data"] = {

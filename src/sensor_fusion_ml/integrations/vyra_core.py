@@ -128,3 +128,20 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
             "integration_policy": "preserve_position_and_covariance_no_transform",
         },
     )
+
+
+
+class RoboQAGPSConsumerAdapter:
+    """Vyra Core ConsumerAdapter for RoboQA GPS envelopes.
+
+    The adapter is deliberately thin: all payload validation and Observation
+    construction remain in ``roboqa_gps_envelope_to_observation``.
+    """
+
+    name = "roboqa-gps-consumer"
+    version = "0.1.0"
+    consumer_module_id = "vyra.sensor_fusion"
+
+    def from_envelope(self, envelope: Any) -> Observation:
+        """Convert one Core envelope into a typed GNSS Observation."""
+        return roboqa_gps_envelope_to_observation(envelope)

@@ -1,7 +1,6 @@
 from dataclasses import replace
 from datetime import datetime, timezone
 
-import numpy as np
 import pytest
 
 mpe_contracts = pytest.importorskip("mpe.domain.contracts")
@@ -9,7 +8,6 @@ mpe_core_kinds = pytest.importorskip("mpe.core.kinds")
 mpe_core_origin = pytest.importorskip("mpe.core.origin")
 mpe_core_provenance = pytest.importorskip("mpe.core.provenance")
 mpe_core_stamp = pytest.importorskip("mpe.core.stamp")
-mpe_geometry = pytest.importorskip("mpe.domain.geometry")
 vyra_contracts = pytest.importorskip("vyra_core.contracts")
 vyra_adapter = pytest.importorskip("vyra_core.adapters.mpe")
 
@@ -190,10 +188,10 @@ def test_rejects_temporal_metadata_mismatch():
         mpe_detection_envelope_to_observation(replace(envelope, temporal_reference=temporal))
 
 
-def test_rejects_naive_capture_timestamp():
+def test_rejects_missing_capture_timestamp():
     detection = make_detection()
-    naive_stamp = replace(detection.stamp, capture_timestamp=datetime(2026, 11, 11, 10))
-    envelope = make_envelope(replace(detection, stamp=naive_stamp))
+    missing_stamp = replace(detection.stamp, capture_timestamp=None)
+    envelope = make_envelope(replace(detection, stamp=missing_stamp))
     with pytest.raises(VyraEnvelopeError, match="timezone-aware"):
         mpe_detection_envelope_to_observation(envelope)
 

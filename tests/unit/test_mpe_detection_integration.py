@@ -222,3 +222,11 @@ def test_wrong_artifact_type_is_rejected():
     envelope = make_envelope()
     with pytest.raises(VyraEnvelopeError, match="artifact_type='detection'"):
         mpe_detection_envelope_to_observation(replace(envelope, artifact_type="track"))
+
+
+def test_rejects_unsupported_mpe_schema_version():
+    envelope = make_envelope()
+    with pytest.raises(VyraEnvelopeError, match="schema version"):
+        mpe_detection_envelope_to_observation(
+            replace(envelope, schema_version="0.4.0")
+        )

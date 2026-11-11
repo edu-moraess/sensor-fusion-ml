@@ -19,12 +19,33 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
     Geographic coordinates must be projected upstream by a validated transform.
     R is represented by typed Observation uncertainty; legacy metadata is retained.
     """
-    for name in ("artifact_type", "payload", "temporal_reference",
-                 "spatial_reference", "artifact_id", "producer"):
+    for name in (
+        "module_id", "schema_name", "schema_version", "artifact_type",
+        "payload", "temporal_reference", "spatial_reference", "artifact_id",
+        "producer", "repository_id", "provenance",
+    ):
         if not hasattr(envelope, name):
             raise VyraEnvelopeError(f"Envelope is missing required field: {name}")
+    if envelope.module_id != "vyra.roboqa":
+        raise VyraEnvelopeError("Envelope module_id must be 'vyra.roboqa'")
+    if envelope.producer != "roboqa-lab":
+        raise VyraEnvelopeError("Envelope producer_id must be 'roboqa-lab'")
+    if envelope.repository_id != "edu-moraess/vyra-roboqa-intell":
+        raise VyraEnvelopeError("Envelope repository_id is not the canonical RoboQA repository")
+    if envelope.schema_name != "roboqa.measurement":
+        raise VyraEnvelopeError("Envelope schema_name must be 'roboqa.measurement'")
+    if envelope.schema_version != "0.1.0":
+        raise VyraEnvelopeError("Unsupported RoboQA measurement schema version")
     if envelope.artifact_type != "gps_measurement":
         raise VyraEnvelopeError("Only artifact_type='gps_measurement' is supported")
+
+    provenance = envelope.provenance
+    if getattr(provenance, "producer", None) != envelope.producer:
+        raise VyraEnvelopeError("Envelope provenance producer must match producer identity")
+    if getattr(provenance, "adapter", None) != "roboqa-gps-producer":
+        raise VyraEnvelopeError("Envelope provenance must identify roboqa-gps-producer")
+    if getattr(provenance, "adapter_version", None) != "0.1.0":
+        raise VyraEnvelopeError("Unsupported RoboQA producer adapter version")
 
     measurement = envelope.payload
     for name in ("t", "sensor", "z", "R"):

@@ -19,8 +19,11 @@ adapter imports them lazily and raises `VyraEnvelopeError` if they are absent.
   `schema_name="mpe.detection"`.
 - A native MPE `Detection` payload.
 - A valid `mpe.image_bbox_xywh.v1` geometry mapping, with positive image
-  dimensions, explicit image reference, original-image coordinate space, and
-  an in-bounds XYWH box.
+  dimensions, explicit image reference, `image.source_id`, non-negative
+  integer `image.sequence`, original-image coordinate space, and an
+  in-bounds XYWH box. The source ID and sequence must exactly match the
+  native Detection Stamp; the opaque image reference is not parsed to infer
+  identity.
 - A Core `SpatialReference` with `coordinate_frame="PIXEL"`,
   `coordinate_system="IMAGE_2D"`, `axis_order=("u", "v")`,
   `units=("px", "px")`, no CRS, and origin
@@ -29,7 +32,9 @@ adapter imports them lazily and raises `VyraEnvelopeError` if they are absent.
   clock domain in the Core temporal reference.
 
 If preprocessing is applied, transform ID and provenance must agree between
-the geometry profile and Core spatial reference.
+the geometry profile and Core spatial reference. If preprocessing is not
+applied, transform ID and provenance must be absent or null in the geometry
+profile and absent from the Core spatial reference.
 
 ## Mapping rules
 

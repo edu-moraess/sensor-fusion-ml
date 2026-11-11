@@ -57,7 +57,7 @@ def mpe_detection_envelope_to_observation(envelope: Any) -> Observation:
     calibration, tracking, or cross-sensor synchronization is performed.
     """
     try:
-        from mpe.domain.contracts import Detection
+        from mpe.domain.contracts import CONTRACTS_VERSION, Detection
         from mpe.domain.geometry import (
             IMAGE_BBOX_XYWH_V1,
             GeometryProfileError,
@@ -73,6 +73,10 @@ def mpe_detection_envelope_to_observation(envelope: Any) -> Observation:
         raise VyraEnvelopeError("envelope must be a Vyra Core ArtifactEnvelope")
     if envelope.artifact_type != "detection" or envelope.schema_name != "mpe.detection":
         raise VyraEnvelopeError("Only MPE artifact_type='detection' is supported")
+    if envelope.schema_version != CONTRACTS_VERSION:
+        raise VyraEnvelopeError(
+            f"Unsupported MPE schema version: {envelope.schema_version}"
+        )
     if not isinstance(envelope.payload, Detection):
         raise VyraEnvelopeError("Envelope payload must be a native MPE Detection")
     detection = envelope.payload
@@ -162,6 +166,10 @@ def mpe_detection_envelope_to_observation(envelope: Any) -> Observation:
     mpe_extensions = extensions.get("mpe", {}) if isinstance(extensions, Mapping) else {}
     if not isinstance(mpe_extensions, Mapping):
         raise VyraEnvelopeError("Envelope extensions['mpe'] must be a mapping")
+    if mpe_extensions.get("contracts_version") != CONTRACTS_VERSION:
+        raise VyraEnvelopeError(
+            "MPE extension contracts_version must match the envelope schema"
+        )
 
     provenance = _provenance_payload(envelope.provenance)
     original_timestamp = capture_time.isoformat()

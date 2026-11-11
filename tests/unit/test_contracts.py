@@ -1,5 +1,6 @@
 """Unit tests for data contracts."""
 
+import json
 import numpy as np
 import pytest
 
@@ -52,3 +53,36 @@ def test_data_contract_to_dict():
     assert d["name"] == "test"
     assert "gnss" in d["required_modalities"]
     assert d["license"] == "MIT"
+
+
+def _make_observation(quality_marker=...):
+    kwargs = {} if quality_marker is ... else {"quality": quality_marker}
+    return Observation(
+        modality=SensorModality.DETECTION,
+        timestamp=Timestamp(1.0),
+        data={"bbox": [1, 2, 3, 4]},
+        **kwargs,
+    )
+
+
+def test_observation_quality_defaults_to_none_and_serializes():
+    observation = _make_observation()
+    assert observation.quality is None
+    assert observation.to_dict()["quality"] is None
+    json.dumps(observation.to_dict())
+
+
+@pytest.mark.parametrize("quality", [0.0, 0.25, 1.0, np.float32(0.5)])
+def test_observation_accepts_finite_quality_in_range(quality):
+    observation = _make_observation(quality)
+    assert observation.quality == pytest.approx(float(quality))
+    assert isinstance(observation.quality, float)
+
+
+@pytest.mark.parametrize(
+    "quality",
+    [True, False, "0.5", float("nan"), float("inf"), float("-inf"), -0.01, 1.01],
+)
+def test_observation_rejects_invalid_quality(quality):
+    with pytest.raises(ValueError, match="quality"):
+        _make_observation(quality)

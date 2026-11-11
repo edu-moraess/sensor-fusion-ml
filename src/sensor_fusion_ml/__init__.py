@@ -22,12 +22,12 @@ __author__ = "ArqTech Labs / Eduardo Moraes"
 
 # Lightweight public API – heavy submodules are imported lazily
 from sensor_fusion_ml.data_engine.validator import DataValidator, ValidationReport
-from sensor_fusion_ml.data_engine.contracts import DataContract, SensorModality
+from sensor_fusion_ml.data_engine.contracts import (\n    DataContract, SensorModality, MeasurementUncertainty, UncertaintyStatus,\n)
 
 __all__ = [
     "__version__",
     "DataValidator",
     "ValidationReport",
     "DataContract",
-    "SensorModality",
+    "SensorModality",\n    "MeasurementUncertainty",\n    "UncertaintyStatus",
 ]

@@ -43,7 +43,7 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
         raise VyraEnvelopeError("GPS z and R must contain only finite values")
     if not np.allclose(covariance, covariance.T, atol=1e-8):
         raise VyraEnvelopeError("GPS R must be symmetric")
-    if float(np.linalg.eigvalsh((covariance + covariance.T) / 2.0).min()) < -1e-8:
+    if float(np.linalg.eigvalsh((covariance + covariance.T) / 2.0).min()) < -1e-9:
         raise VyraEnvelopeError("GPS R must be positive semidefinite")
 
     temporal = envelope.temporal_reference

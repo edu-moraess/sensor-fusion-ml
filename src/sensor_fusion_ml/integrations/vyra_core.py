@@ -17,7 +17,7 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
 
     Accepts only explicit local Cartesian x/y coordinates in metres.
     Geographic coordinates must be projected upstream by a validated transform.
-    R is preserved in metadata because Observation has no covariance field.
+    R is represented by typed Observation uncertainty; legacy metadata is retained.
     """
     for name in ("artifact_type", "payload", "temporal_reference",
                  "spatial_reference", "artifact_id", "producer"):

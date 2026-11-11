@@ -50,6 +50,8 @@ def make_detection(evidence_kind=None, geometry=None):
                 "width": 1280,
                 "height": 720,
                 "reference": IMAGE_REF,
+                "source_id": "camera-front",
+                "sequence": 123,
                 "coordinate_space": "original_image",
             },
             "preprocessing": {
@@ -107,6 +109,8 @@ def test_native_mpe_detection_maps_to_pixel_observation_without_projection():
     assert observation.metadata["source_repository"] == "edu-moraess/vyra-mpe-intell"
     assert observation.metadata["source_commit"] == "fixture-commit"
     assert observation.metadata["image_reference"] == IMAGE_REF
+    assert observation.metadata["image_source_id"] == "camera-front"
+    assert observation.metadata["image_sequence"] == 123
     assert observation.metadata["image_width"] == 1280
     assert observation.metadata["image_height"] == 720
     assert observation.metadata["clock_domain"] == "camera-monotonic"
@@ -166,6 +170,24 @@ def test_rejects_spatial_reference_image_mismatch():
     )
     envelope = make_envelope(spatial=spatial)
     with pytest.raises(VyraEnvelopeError, match="origin"):
+        mpe_detection_envelope_to_observation(envelope)
+
+
+@pytest.mark.parametrize(
+    "field, value, message",
+    [
+        ("source_id", "another-camera", "source_id"),
+        ("sequence", 124, "sequence"),
+    ],
+)
+def test_rejects_image_frame_identity_mismatch(field, value, message):
+    detection = make_detection()
+    geometry = {
+        **detection.geometry,
+        "image": {**detection.geometry["image"], field: value},
+    }
+    envelope = make_envelope(replace(detection, geometry=geometry))
+    with pytest.raises(VyraEnvelopeError, match=message):
         mpe_detection_envelope_to_observation(envelope)
 
 

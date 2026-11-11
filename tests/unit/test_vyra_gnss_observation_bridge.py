@@ -62,6 +62,7 @@ def make_observation(
                 "transform_provenance": "test fixture; not a production transform",
             },
             "temporal_reference": {
+                "clock_domain": "roboqa-test-clock",
                 "synchronization": synchronization,
                 "synchronization_uncertainty": synchronization_uncertainty,
             },
@@ -77,6 +78,8 @@ def test_valid_explicit_enu_observation_updates_eskf():
         eskf,
         observation,
         state_reference_id=REFERENCE_ID,
+        state_time_s=1.25,
+        max_measurement_time_offset_s=0.005,
         max_synchronization_uncertainty_s=0.01,
     )
 
@@ -95,6 +98,8 @@ def test_local_cartesian_roboqa_observation_is_not_implicitly_treated_as_enu():
             eskf,
             observation,
             state_reference_id=REFERENCE_ID,
+            state_time_s=1.25,
+            max_measurement_time_offset_s=0.005,
             max_synchronization_uncertainty_s=0.01,
         )
 
@@ -130,6 +135,8 @@ def test_measurement_and_state_spatial_references_must_match():
             VyraESKF(),
             observation,
             state_reference_id="different-crs::different-origin",
+            state_time_s=1.25,
+            max_measurement_time_offset_s=0.005,
             max_synchronization_uncertainty_s=0.01,
         )
 
@@ -163,5 +170,33 @@ def test_covariance_axes_must_be_east_north():
             VyraESKF(),
             observation,
             state_reference_id=REFERENCE_ID,
+            max_synchronization_uncertainty_s=0.01,
+        )
+
+
+
+def test_measurement_time_must_match_declared_eskf_state_time_tolerance():
+    observation = make_observation()
+    with pytest.raises(GNSSObservationBridgeError, match="outside the caller-supplied"):
+        apply_enu_gnss_observation(
+            VyraESKF(),
+            observation,
+            state_reference_id=REFERENCE_ID,
+            state_time_s=1.30,
+            max_measurement_time_offset_s=0.005,
+            max_synchronization_uncertainty_s=0.01,
+        )
+
+
+def test_timestamp_source_must_match_temporal_clock_domain():
+    observation = make_observation()
+    observation.timestamp.source = "different-clock"
+    with pytest.raises(GNSSObservationBridgeError, match="timestamp source"):
+        apply_enu_gnss_observation(
+            VyraESKF(),
+            observation,
+            state_reference_id=REFERENCE_ID,
+            state_time_s=1.25,
+            max_measurement_time_offset_s=0.005,
             max_synchronization_uncertainty_s=0.01,
         )

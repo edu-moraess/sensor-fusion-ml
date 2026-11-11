@@ -182,6 +182,9 @@ class Observation:
     def __post_init__(self) -> None:
         if not isinstance(self.uncertainty, MeasurementUncertainty):
             raise ValueError("uncertainty must be a MeasurementUncertainty instance")
+        if (self.uncertainty.status == UncertaintyStatus.PROVIDED
+                and self.uncertainty.frame != self.frame):
+            raise ValueError("uncertainty frame must match Observation.frame")
         if self.quality is None:
             return
         if isinstance(self.quality, (bool, np.bool_)) or not isinstance(

@@ -20,3 +20,17 @@ A `DataContract` is a machine-readable declaration of what a dataset or stream m
 - Duplicate or out-of-order timestamps produce evidence, not automatic drops.
 - Split leakage is reported as `FAIL`.
 - Reports are JSON-serializable and timestamped (UTC).
+
+
+## Observation quality semantics
+
+`Observation.quality` is an optional numeric score in the closed interval
+`[0, 1]`. A value of `None` means that the source did not provide a
+comparable numeric quality score. It must not be replaced with `1.0` merely
+because the source artifact is valid or because the adapter successfully
+parsed it.
+
+When present, quality must be finite and numeric. Booleans, strings, NaN,
+infinity, and values outside `[0, 1]` are rejected. Detector confidence,
+categorical source-quality labels, and measurement covariance are distinct
+quantities and must remain in their own fields or metadata.

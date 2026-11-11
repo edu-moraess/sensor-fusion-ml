@@ -85,10 +85,22 @@ class Observation:
     data: Any                                 # np.ndarray, dict, or structured payload
     frame: CoordinateFrame = CoordinateFrame.SENSOR
     sensor_id: str = "default"
-    quality: float = 1.0                      # [0, 1]
+    quality: Optional[float] = None            # [0, 1], None when not supplied
     is_valid: bool = True
     is_estimate: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.quality is None:
+            return
+        if isinstance(self.quality, (bool, np.bool_)) or not isinstance(
+            self.quality, (int, float, np.integer, np.floating)
+        ):
+            raise ValueError("quality must be a finite number in [0, 1] or None")
+        value = float(self.quality)
+        if not np.isfinite(value) or not 0.0 <= value <= 1.0:
+            raise ValueError("quality must be a finite number in [0, 1] or None")
+        self.quality = value
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)

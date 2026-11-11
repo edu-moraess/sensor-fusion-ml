@@ -83,7 +83,7 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
         data=data,
         frame=CoordinateFrame.LOCAL_CARTESIAN,
         sensor_id=str(getattr(temporal, "source_id", None) or envelope.producer),
-        quality=1.0,
+        quality=None,
         is_valid=True,
         is_estimate=False,
         metadata={

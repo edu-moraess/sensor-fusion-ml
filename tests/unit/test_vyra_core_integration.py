@@ -29,6 +29,8 @@ def test_converts_local_metric_gps_and_preserves_covariance():
     assert observation.modality.value == "gnss"
     assert observation.frame.value == "local_cartesian"
     assert observation.timestamp.value == 1.25
+    assert observation.quality is None
+    assert observation.metadata["quality_status"] == "not_provided_by_source"
     np.testing.assert_array_equal(observation.data, [12.0, 34.0])
     assert not observation.data.flags.writeable
     assert observation.metadata["measurement_covariance"] == envelope.payload.R.tolist()

@@ -22,9 +22,24 @@ def make_envelope():
         units=("m", "m"), origin="first OXTS latitude/longitude sample",
         transform_id=None, transform_provenance="RoboQA latlon_to_local",
         spatial_uncertainty=None)
-    return SimpleNamespace(artifact_type="gps_measurement", payload=measurement,
-        temporal_reference=temporal, spatial_reference=spatial,
-        artifact_id="artifact-1", producer="roboqa-lab")
+    provenance = SimpleNamespace(
+        producer="roboqa-lab",
+        adapter="roboqa-gps-producer",
+        adapter_version="0.1.0",
+    )
+    return SimpleNamespace(
+        module_id="vyra.roboqa",
+        schema_name="roboqa.measurement",
+        schema_version="0.1.0",
+        artifact_type="gps_measurement",
+        payload=measurement,
+        temporal_reference=temporal,
+        spatial_reference=spatial,
+        artifact_id="artifact-1",
+        producer="roboqa-lab",
+        repository_id="edu-moraess/vyra-roboqa-intell",
+        provenance=provenance,
+    )
 
 
 def test_converts_local_metric_gps_and_preserves_covariance():
@@ -103,3 +118,27 @@ def test_roboqa_consumer_adapter_implements_core_consumer_shape():
     observation = adapter.from_envelope(make_envelope())
     assert observation.modality.value == "gnss"
     assert observation.frame.value == "local_cartesian"
+
+
+
+@pytest.mark.parametrize(
+    "field,value,error",
+    [
+        ("module_id", "forged.module", "module_id"),
+        ("schema_name", "other.measurement", "schema_name"),
+        ("schema_version", "9.9.9", "schema version"),
+        ("repository_id", "other/repository", "repository_id"),
+    ],
+)
+def test_rejects_noncanonical_roboqa_envelope_identity(field, value, error):
+    envelope = make_envelope()
+    setattr(envelope, field, value)
+    with pytest.raises(VyraEnvelopeError, match=error):
+        roboqa_gps_envelope_to_observation(envelope)
+
+
+def test_rejects_provenance_adapter_identity_mismatch():
+    envelope = make_envelope()
+    envelope.provenance.adapter = "untrusted-adapter"
+    with pytest.raises(VyraEnvelopeError, match="roboqa-gps-producer"):
+        roboqa_gps_envelope_to_observation(envelope)

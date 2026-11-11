@@ -53,8 +53,8 @@ metadata.
 This adapter does not call `ConstantVelocityKF`. That filter currently uses
 a configured scalar isotropic measurement-noise matrix and cannot consume an
 arbitrary per-observation covariance `R`. A later filter API change must explicitly accept and validate the typed
-observation covariance before this data is used in a Kalman update. This F-01
-contract change does not alter either estimator's update equations.
+observation covariance before this data is used in a Kalman update. This
+F-01 contract change does not alter either estimator's update equations.
 
 ## API
 

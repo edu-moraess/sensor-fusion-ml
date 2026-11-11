@@ -6,6 +6,8 @@ from datetime import datetime
 import math
 from typing import Any
 
+from .vyra_core import VyraEnvelopeError
+
 from sensor_fusion_ml.data_engine.contracts import (
     CoordinateFrame,
     Observation,
@@ -13,10 +15,6 @@ from sensor_fusion_ml.data_engine.contracts import (
     TimeUnit,
     Timestamp,
 )
-
-
-class VyraEnvelopeError(ValueError):
-    """Raised when a Vyra envelope lacks safe, explicit domain semantics."""
 
 
 _EVIDENCE_TO_IS_ESTIMATE = {

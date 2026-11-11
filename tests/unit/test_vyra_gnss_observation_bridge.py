@@ -113,6 +113,8 @@ def test_unsynchronized_roboqa_time_is_rejected():
             VyraESKF(),
             observation,
             state_reference_id=REFERENCE_ID,
+            state_time_s=1.25,
+            max_measurement_time_offset_s=0.005,
             max_synchronization_uncertainty_s=0.01,
         )
 
@@ -124,6 +126,8 @@ def test_synchronization_uncertainty_must_be_within_caller_tolerance():
             VyraESKF(),
             observation,
             state_reference_id=REFERENCE_ID,
+            state_time_s=1.25,
+            max_measurement_time_offset_s=0.005,
             max_synchronization_uncertainty_s=0.01,
         )
 
@@ -148,6 +152,8 @@ def test_spatial_transform_identity_and_provenance_are_required():
             VyraESKF(),
             observation,
             state_reference_id=REFERENCE_ID,
+            state_time_s=1.25,
+            max_measurement_time_offset_s=0.005,
             max_synchronization_uncertainty_s=0.01,
         )
 
@@ -159,6 +165,8 @@ def test_singular_psd_covariance_is_not_regularized_for_eskf():
             VyraESKF(),
             observation,
             state_reference_id=REFERENCE_ID,
+            state_time_s=1.25,
+            max_measurement_time_offset_s=0.005,
             max_synchronization_uncertainty_s=0.01,
         )
 
@@ -170,6 +178,8 @@ def test_covariance_axes_must_be_east_north():
             VyraESKF(),
             observation,
             state_reference_id=REFERENCE_ID,
+            state_time_s=1.25,
+            max_measurement_time_offset_s=0.005,
             max_synchronization_uncertainty_s=0.01,
         )
 

@@ -31,6 +31,8 @@ def apply_enu_gnss_observation(
     observation: Any,
     *,
     state_reference_id: str,
+    state_time_s: float,
+    max_measurement_time_offset_s: float,
     max_synchronization_uncertainty_s: float,
 ) -> dict[str, Any]:
     """Apply a typed 2D GNSS Observation to VyraESKF under strict guards.
@@ -41,8 +43,11 @@ def apply_enu_gnss_observation(
     - Spatial CRS, origin, transform ID and transform provenance are explicit.
     - The ESKF state reference ID equals the canonical declared measurement
       reference formed from CRS and origin.
-    - Source time is explicitly marked synchronized and its uncertainty is
-      within the caller-supplied tolerance.
+    - Source time is explicitly marked synchronized, its clock domain matches
+      the Observation timestamp source, and its uncertainty is within the
+      caller-supplied tolerance.
+    - Measurement time is within a caller-supplied offset of the declared
+      ESKF state time.
     - The 2x2 covariance is positive definite. PSD-but-singular covariance is
       preserved by the producer/consumer contract but is not regularized here.
 
@@ -55,6 +60,21 @@ def apply_enu_gnss_observation(
         )
     if not isinstance(state_reference_id, str) or not state_reference_id.strip():
         raise GNSSObservationBridgeError("state_reference_id is required")
+    if (
+        isinstance(state_time_s, bool)
+        or not isinstance(state_time_s, (int, float))
+        or not math.isfinite(float(state_time_s))
+    ):
+        raise GNSSObservationBridgeError("state_time_s must be finite")
+    if (
+        isinstance(max_measurement_time_offset_s, bool)
+        or not isinstance(max_measurement_time_offset_s, (int, float))
+        or not math.isfinite(float(max_measurement_time_offset_s))
+        or float(max_measurement_time_offset_s) < 0
+    ):
+        raise GNSSObservationBridgeError(
+            "max_measurement_time_offset_s must be finite and non-negative"
+        )
     if (
         isinstance(max_synchronization_uncertainty_s, bool)
         or not isinstance(max_synchronization_uncertainty_s, (int, float))
@@ -82,6 +102,10 @@ def apply_enu_gnss_observation(
     timestamp_s = float(timestamp.to_seconds())
     if not math.isfinite(timestamp_s):
         raise GNSSObservationBridgeError("Observation timestamp must be finite")
+    if abs(timestamp_s - float(state_time_s)) > float(max_measurement_time_offset_s):
+        raise GNSSObservationBridgeError(
+            "Measurement timestamp is outside the caller-supplied ESKF time tolerance"
+        )
 
     uncertainty = getattr(observation, "uncertainty", None)
     if uncertainty is None or getattr(uncertainty, "status", None) != UncertaintyStatus.PROVIDED:
@@ -148,6 +172,14 @@ def apply_enu_gnss_observation(
     temporal = metadata.get("temporal_reference")
     if not isinstance(temporal, Mapping):
         raise GNSSObservationBridgeError("Explicit temporal_reference metadata is required")
+    clock_domain = temporal.get("clock_domain")
+    timestamp_source = getattr(timestamp, "source", None)
+    if not isinstance(clock_domain, str) or not clock_domain.strip():
+        raise GNSSObservationBridgeError("temporal_reference.clock_domain is required")
+    if timestamp_source != clock_domain:
+        raise GNSSObservationBridgeError(
+            "Observation timestamp source must match temporal clock_domain"
+        )
     if temporal.get("synchronization") != "synchronized":
         raise GNSSObservationBridgeError(
             "GNSS source must be explicitly synchronized with the ESKF time base"
@@ -176,6 +208,8 @@ def apply_enu_gnss_observation(
     )
     return {
         "measurement_timestamp_s": timestamp_s,
+        "eskf_state_time_s": float(state_time_s),
+        "measurement_time_offset_s": abs(timestamp_s - float(state_time_s)),
         "measurement_reference_id": measurement_reference_id,
         "synchronization_uncertainty_s": float(synchronization_uncertainty),
         "mapping_id": GNSS_2D_HORIZONTAL_MAPPING_ID,

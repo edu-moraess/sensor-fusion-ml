@@ -6,6 +6,10 @@ from .vyra_eskf import (
     quat_from_rotation_vector, quat_multiply, quat_rotate,
     quat_to_rotation_matrix, skew, zupt_update,
 )
+from .gnss_observation_bridge import (
+    GNSSObservationBridgeError,
+    apply_enu_gnss_observation,
+)
 
 __all__ = [
     "G", "STATE_DIM", "IMUNoise", "NavigationState", "VyraESKF",
@@ -13,4 +17,5 @@ __all__ = [
     "gnss_position_update", "propagate_covariance", "propagate_nominal",
     "quat_from_rotation_vector", "quat_multiply", "quat_rotate",
     "quat_to_rotation_matrix", "skew", "zupt_update",
+    "GNSSObservationBridgeError", "apply_enu_gnss_observation",
 ]

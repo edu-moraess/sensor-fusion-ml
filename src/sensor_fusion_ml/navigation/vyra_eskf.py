@@ -204,6 +204,60 @@ def gnss_position_update(state: NavigationState, P: np.ndarray,
     return measurement_update(state, P, z - state.p, H, R_gnss)
 
 
+GNSS_2D_HORIZONTAL_MAPPING_ID = "gnss_2d_horizontal_v1"
+
+
+def gnss_horizontal_position_update(
+    state: NavigationState,
+    P: np.ndarray,
+    position_enu_xy: np.ndarray,
+    R_gnss: np.ndarray,
+    *,
+    mapping_id: str,
+    measurement_reference_id: str,
+    state_reference_id: str,
+):
+    """Apply an explicitly mapped East/North GNSS update to the 15-state ESKF.
+
+    The measurement is [East, North] in metres, in the exact same local ENU
+    horizontal reference/origin as the nominal navigation state. No coordinate
+    transform is performed. The vertical position is not directly observed.
+    """
+    if mapping_id != GNSS_2D_HORIZONTAL_MAPPING_ID:
+        raise ValueError("Unsupported or missing GNSS 2D mapping_id")
+    if (not isinstance(measurement_reference_id, str)
+            or not measurement_reference_id.strip()
+            or not isinstance(state_reference_id, str)
+            or not state_reference_id.strip()):
+        raise ValueError("Measurement and state reference IDs are required")
+    if measurement_reference_id != state_reference_id:
+        raise ValueError("GNSS measurement and ESKF state references must match")
+
+    z = np.asarray(position_enu_xy, dtype=float)
+    R = np.asarray(R_gnss, dtype=float)
+    if z.shape != (2,):
+        raise ValueError("Horizontal GNSS position must have shape (2,) [East, North]")
+    if R.shape != (2, 2):
+        raise ValueError("Horizontal GNSS covariance must have shape (2, 2)")
+    if not np.all(np.isfinite(z)) or not np.all(np.isfinite(R)):
+        raise ValueError("Horizontal GNSS position and covariance must be finite")
+
+    H = np.zeros((2, 15))
+    H[0, 0] = 1.0
+    H[1, 1] = 1.0
+    updated_state, updated_P, report = measurement_update(
+        state, P, z - state.p[:2], H, R
+    )
+    report.update({
+        "measurement_model": GNSS_2D_HORIZONTAL_MAPPING_ID,
+        "observed_components": ["east", "north"],
+        "vertical_measurement_status": "NOT_OBSERVED",
+        "vertical_state_effect": "cross_covariance_only",
+        "reference_id": measurement_reference_id,
+    })
+    return updated_state, updated_P, report
+
+
 def zupt_update(state: NavigationState, P: np.ndarray, R_zupt: np.ndarray):
     """Zero-velocity update; caller must supply independent rest detection."""
     H = np.zeros((3, 15))
@@ -239,6 +293,25 @@ class VyraESKF:
         self.state, self.P, report = gnss_position_update(
             self.state, self.P, position_enu, covariance)
         self.history.append({"event": "gnss", "nis": report["nis"]})
+        return report
+
+    def update_gnss_horizontal(
+        self, position_enu_xy, covariance, *, mapping_id,
+        measurement_reference_id, state_reference_id,
+    ):
+        self.state, self.P, report = gnss_horizontal_position_update(
+            self.state, self.P, position_enu_xy, covariance,
+            mapping_id=mapping_id,
+            measurement_reference_id=measurement_reference_id,
+            state_reference_id=state_reference_id,
+        )
+        self.history.append({
+            "event": "gnss_horizontal",
+            "nis": report["nis"],
+            "mapping_id": report["measurement_model"],
+            "reference_id": report["reference_id"],
+            "vertical_measurement_status": report["vertical_measurement_status"],
+        })
         return report
 
     def update_zupt(self, covariance):

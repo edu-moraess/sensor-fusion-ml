@@ -5,7 +5,8 @@ from sensor_fusion_ml.navigation.vyra_eskf import (
     quat_from_rotation_vector, quat_to_rotation_matrix,
     propagate_nominal, continuous_error_matrices,
     propagate_covariance, covariance_diagnostics,
-    gnss_position_update, zupt_update,
+    gnss_position_update, gnss_horizontal_position_update,
+    GNSS_2D_HORIZONTAL_MAPPING_ID, zupt_update,
 )
 
 
@@ -97,3 +98,84 @@ def test_filter_pipeline():
     d = covariance_diagnostics(filt.P)
     assert d["finite"] and d["symmetric"] and d["positive_semidefinite"]
     assert np.all(np.isfinite(filt.state.p))
+
+
+def _horizontal_update(state, P, position=(1.0, 2.0), covariance=None,
+                       mapping_id=GNSS_2D_HORIZONTAL_MAPPING_ID,
+                       measurement_reference_id="local-enu-origin-01",
+                       state_reference_id="local-enu-origin-01"):
+    R = np.eye(2) * 0.1 if covariance is None else covariance
+    return gnss_horizontal_position_update(
+        state, P, position, R,
+        mapping_id=mapping_id,
+        measurement_reference_id=measurement_reference_id,
+        state_reference_id=state_reference_id,
+    )
+
+
+def test_gnss_2d_horizontal_update_observes_only_east_north():
+    state = NavigationState(p=[0.0, 0.0, 7.0])
+    P = np.eye(15) * 2.0
+    updated, P_updated, report = _horizontal_update(state, P)
+
+    np.testing.assert_allclose(updated.p[:2], [1.0 / 1.05, 2.0 / 1.05])
+    assert updated.p[2] == state.p[2]
+    assert P_updated[2, 2] == P[2, 2]
+    assert report["observed_components"] == ["east", "north"]
+    assert report["vertical_measurement_status"] == "NOT_OBSERVED"
+    assert report["vertical_state_effect"] == "cross_covariance_only"
+    assert report["measurement_model"] == "gnss_2d_horizontal_v1"
+
+
+def test_gnss_2d_horizontal_update_allows_only_indirect_vertical_correction():
+    state = NavigationState(p=[0.0, 0.0, 7.0])
+    P = np.eye(15) * 2.0
+    P[2, 0] = P[0, 2] = 0.5
+
+    updated, P_updated, report = _horizontal_update(
+        state, P, position=(1.0, 0.0)
+    )
+
+    assert updated.p[2] != state.p[2]
+    assert report["vertical_measurement_status"] == "NOT_OBSERVED"
+    assert report["vertical_state_effect"] == "cross_covariance_only"
+    assert P_updated[2, 2] <= P[2, 2]
+
+
+def test_gnss_2d_horizontal_update_requires_explicit_matching_reference():
+    state = NavigationState()
+    P = np.eye(15)
+    with np.testing.assert_raises_regex(ValueError, "references must match"):
+        _horizontal_update(
+            state, P, measurement_reference_id="origin-A",
+            state_reference_id="origin-B"
+        )
+
+
+def test_gnss_2d_horizontal_update_rejects_unknown_mapping():
+    with np.testing.assert_raises_regex(ValueError, "mapping_id"):
+        _horizontal_update(NavigationState(), np.eye(15), mapping_id="implicit_xy")
+
+
+def test_gnss_2d_horizontal_update_rejects_invalid_shapes_and_nonfinite_values():
+    state = NavigationState()
+    P = np.eye(15)
+    with np.testing.assert_raises_regex(ValueError, r"shape \(2,\)"):
+        _horizontal_update(state, P, position=(1.0, 2.0, 3.0))
+    with np.testing.assert_raises_regex(ValueError, r"shape \(2, 2\)"):
+        _horizontal_update(state, P, covariance=np.eye(3))
+    with np.testing.assert_raises_regex(ValueError, "must be finite"):
+        _horizontal_update(state, P, position=(np.nan, 2.0))
+
+
+def test_eskf_horizontal_gnss_method_records_mapping_and_vertical_status():
+    filt = VyraESKF()
+    report = filt.update_gnss_horizontal(
+        [1.0, 2.0], np.eye(2) * 0.1,
+        mapping_id=GNSS_2D_HORIZONTAL_MAPPING_ID,
+        measurement_reference_id="enu-origin-A",
+        state_reference_id="enu-origin-A",
+    )
+    assert filt.history[-1]["event"] == "gnss_horizontal"
+    assert filt.history[-1]["vertical_measurement_status"] == "NOT_OBSERVED"
+    assert report["reference_id"] == "enu-origin-A"

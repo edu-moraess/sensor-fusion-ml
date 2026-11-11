@@ -13,6 +13,8 @@ from sensor_fusion_ml.data_engine.contracts import (
     TimeUnit,
     Pose3D,
     CoordinateFrame,
+    MeasurementUncertainty,
+    UncertaintyStatus,
 )
 
 
@@ -68,6 +70,7 @@ def test_observation_quality_defaults_to_none_and_serializes():
     observation = _make_observation()
     assert observation.quality is None
     assert observation.to_dict()["quality"] is None
+    assert observation.uncertainty.status == UncertaintyStatus.UNKNOWN
     json.dumps(observation.to_dict())
 
 
@@ -86,3 +89,81 @@ def test_observation_accepts_finite_quality_in_range(quality):
 def test_observation_rejects_invalid_quality(quality):
     with pytest.raises(ValueError, match="quality"):
         _make_observation(quality=quality)
+
+
+def test_measurement_uncertainty_validates_and_serializes_covariance():
+    covariance = np.array([[4.0, 0.5], [0.5, 9.0]])
+    uncertainty = MeasurementUncertainty(
+        status=UncertaintyStatus.PROVIDED,
+        covariance=covariance,
+        variable_order=("x", "y"),
+        units=("m", "m"),
+        frame=CoordinateFrame.LOCAL_CARTESIAN,
+        provenance="sensor:gnss",
+    )
+    covariance[0, 0] = 999.0
+    assert uncertainty.covariance[0, 0] == 4.0
+    assert not uncertainty.covariance.flags.writeable
+    assert uncertainty.to_dict()["covariance"] == [[4.0, 0.5], [0.5, 9.0]]
+    json.dumps(uncertainty.to_dict())
+
+
+@pytest.mark.parametrize("matrix", [
+    np.array([[1.0, 2.0], [0.0, 1.0]]),
+    np.array([[1.0, 2.0], [2.0, 1.0]]),
+    np.array([[1.0, np.nan], [np.nan, 1.0]]),
+    np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
+])
+def test_measurement_uncertainty_rejects_invalid_covariance(matrix):
+    with pytest.raises(ValueError):
+        MeasurementUncertainty(
+            status=UncertaintyStatus.PROVIDED,
+            covariance=matrix,
+            variable_order=("x", "y") if matrix.shape == (2, 2) else ("x", "y", "z"),
+            units=("m", "m") if matrix.shape == (2, 2) else ("m", "m", "m"),
+            frame=CoordinateFrame.LOCAL_CARTESIAN,
+        )
+
+
+def test_measurement_uncertainty_rejects_semantically_incomplete_contract():
+    with pytest.raises(ValueError, match="variable_order"):
+        MeasurementUncertainty(
+            status=UncertaintyStatus.PROVIDED,
+            covariance=np.eye(2),
+            variable_order=("x",),
+            units=("m", "m"),
+            frame=CoordinateFrame.LOCAL_CARTESIAN,
+        )
+    with pytest.raises(ValueError, match="must not contain covariance"):
+        MeasurementUncertainty(
+            status=UncertaintyStatus.UNKNOWN,
+            covariance=np.eye(2),
+        )
+
+
+@pytest.mark.parametrize("status", [
+    UncertaintyStatus.UNKNOWN,
+    UncertaintyStatus.NOT_COMPUTED,
+    UncertaintyStatus.NOT_APPLICABLE,
+    UncertaintyStatus.UNAVAILABLE,
+    UncertaintyStatus.REDACTED,
+])
+def test_measurement_uncertainty_supports_explicit_nonprovided_states(status):
+    uncertainty = MeasurementUncertainty(status=status)
+    assert uncertainty.covariance is None
+    assert uncertainty.to_dict()["status"] == status.value
+
+
+def test_observation_rejects_uncertainty_in_a_different_frame():
+    uncertainty = MeasurementUncertainty(
+        status=UncertaintyStatus.PROVIDED,
+        covariance=np.eye(2),
+        variable_order=("x", "y"),
+        units=("m", "m"),
+        frame=CoordinateFrame.ENU,
+    )
+    with pytest.raises(ValueError, match="uncertainty frame"):
+        _make_observation(
+            frame=CoordinateFrame.LOCAL_CARTESIAN,
+            uncertainty=uncertainty,
+        )

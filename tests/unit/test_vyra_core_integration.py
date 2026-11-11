@@ -2,7 +2,11 @@ import json
 import numpy as np
 import pytest
 from types import SimpleNamespace
-from sensor_fusion_ml.integrations.vyra_core import VyraEnvelopeError, roboqa_gps_envelope_to_observation
+from sensor_fusion_ml.integrations.vyra_core import (
+    RoboQAGPSConsumerAdapter,
+    VyraEnvelopeError,
+    roboqa_gps_envelope_to_observation,
+)
 
 
 def make_envelope():
@@ -18,9 +22,24 @@ def make_envelope():
         units=("m", "m"), origin="first OXTS latitude/longitude sample",
         transform_id=None, transform_provenance="RoboQA latlon_to_local",
         spatial_uncertainty=None)
-    return SimpleNamespace(artifact_type="gps_measurement", payload=measurement,
-        temporal_reference=temporal, spatial_reference=spatial,
-        artifact_id="artifact-1", producer="roboqa-lab")
+    provenance = SimpleNamespace(
+        producer="roboqa-lab",
+        adapter="roboqa-gps-producer",
+        adapter_version="0.1.0",
+    )
+    return SimpleNamespace(
+        module_id="vyra.roboqa",
+        schema_name="roboqa.measurement",
+        schema_version="0.1.0",
+        artifact_type="gps_measurement",
+        payload=measurement,
+        temporal_reference=temporal,
+        spatial_reference=spatial,
+        artifact_id="artifact-1",
+        producer="roboqa-lab",
+        repository_id="edu-moraess/vyra-roboqa-intell",
+        provenance=provenance,
+    )
 
 
 def test_converts_local_metric_gps_and_preserves_covariance():
@@ -34,6 +53,11 @@ def test_converts_local_metric_gps_and_preserves_covariance():
     np.testing.assert_array_equal(observation.data, [12.0, 34.0])
     assert not observation.data.flags.writeable
     assert observation.metadata["measurement_covariance"] == envelope.payload.R.tolist()
+    assert observation.uncertainty.status.value == "provided"
+    assert observation.uncertainty.variable_order == ("x", "y")
+    assert observation.uncertainty.units == ("m", "m")
+    assert observation.uncertainty.frame.value == "local_cartesian"
+    np.testing.assert_array_equal(observation.uncertainty.covariance, envelope.payload.R)
     json.dumps(observation.to_dict())
 
 
@@ -80,4 +104,41 @@ def test_rejects_wrong_payload_type():
     envelope = make_envelope()
     envelope.artifact_type = "track"
     with pytest.raises(VyraEnvelopeError, match="gps_measurement"):
+        roboqa_gps_envelope_to_observation(envelope)
+
+
+
+def test_roboqa_consumer_adapter_implements_core_consumer_shape():
+    adapter = RoboQAGPSConsumerAdapter()
+    assert adapter.name == "roboqa-gps-consumer"
+    assert adapter.version == "0.1.0"
+    assert adapter.consumer_module_id == "vyra.sensor_fusion"
+    assert callable(adapter.from_envelope)
+
+    observation = adapter.from_envelope(make_envelope())
+    assert observation.modality.value == "gnss"
+    assert observation.frame.value == "local_cartesian"
+
+
+
+@pytest.mark.parametrize(
+    "field,value,error",
+    [
+        ("module_id", "forged.module", "module_id"),
+        ("schema_name", "other.measurement", "schema_name"),
+        ("schema_version", "9.9.9", "schema version"),
+        ("repository_id", "other/repository", "repository_id"),
+    ],
+)
+def test_rejects_noncanonical_roboqa_envelope_identity(field, value, error):
+    envelope = make_envelope()
+    setattr(envelope, field, value)
+    with pytest.raises(VyraEnvelopeError, match=error):
+        roboqa_gps_envelope_to_observation(envelope)
+
+
+def test_rejects_provenance_adapter_identity_mismatch():
+    envelope = make_envelope()
+    envelope.provenance.adapter = "untrusted-adapter"
+    with pytest.raises(VyraEnvelopeError, match="roboqa-gps-producer"):
         roboqa_gps_envelope_to_observation(envelope)

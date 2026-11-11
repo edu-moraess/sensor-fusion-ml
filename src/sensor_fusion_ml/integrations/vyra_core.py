@@ -2,7 +2,10 @@
 from __future__ import annotations
 from typing import Any
 import numpy as np
-from sensor_fusion_ml.data_engine.contracts import CoordinateFrame, Observation, SensorModality, Timestamp, TimeUnit
+from sensor_fusion_ml.data_engine.contracts import (
+    CoordinateFrame, MeasurementUncertainty, Observation, SensorModality,
+    Timestamp, TimeUnit, UncertaintyStatus,
+)
 
 
 class VyraEnvelopeError(ValueError):
@@ -14,14 +17,35 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
 
     Accepts only explicit local Cartesian x/y coordinates in metres.
     Geographic coordinates must be projected upstream by a validated transform.
-    R is preserved in metadata because Observation has no covariance field.
+    R is represented by typed Observation uncertainty; legacy metadata is retained.
     """
-    for name in ("artifact_type", "payload", "temporal_reference",
-                 "spatial_reference", "artifact_id", "producer"):
+    for name in (
+        "module_id", "schema_name", "schema_version", "artifact_type",
+        "payload", "temporal_reference", "spatial_reference", "artifact_id",
+        "producer", "repository_id", "provenance",
+    ):
         if not hasattr(envelope, name):
             raise VyraEnvelopeError(f"Envelope is missing required field: {name}")
+    if envelope.module_id != "vyra.roboqa":
+        raise VyraEnvelopeError("Envelope module_id must be 'vyra.roboqa'")
+    if envelope.producer != "roboqa-lab":
+        raise VyraEnvelopeError("Envelope producer_id must be 'roboqa-lab'")
+    if envelope.repository_id != "edu-moraess/vyra-roboqa-intell":
+        raise VyraEnvelopeError("Envelope repository_id is not the canonical RoboQA repository")
+    if envelope.schema_name != "roboqa.measurement":
+        raise VyraEnvelopeError("Envelope schema_name must be 'roboqa.measurement'")
+    if envelope.schema_version != "0.1.0":
+        raise VyraEnvelopeError("Unsupported RoboQA measurement schema version")
     if envelope.artifact_type != "gps_measurement":
         raise VyraEnvelopeError("Only artifact_type='gps_measurement' is supported")
+
+    provenance = envelope.provenance
+    if getattr(provenance, "producer", None) != envelope.producer:
+        raise VyraEnvelopeError("Envelope provenance producer must match producer identity")
+    if getattr(provenance, "adapter", None) != "roboqa-gps-producer":
+        raise VyraEnvelopeError("Envelope provenance must identify roboqa-gps-producer")
+    if getattr(provenance, "adapter_version", None) != "0.1.0":
+        raise VyraEnvelopeError("Unsupported RoboQA producer adapter version")
 
     measurement = envelope.payload
     for name in ("t", "sensor", "z", "R"):
@@ -38,9 +62,9 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
         raise VyraEnvelopeError(f"GPS R must have shape (2, 2), received {covariance.shape}")
     if not np.all(np.isfinite(z)) or not np.all(np.isfinite(covariance)):
         raise VyraEnvelopeError("GPS z and R must contain only finite values")
-    if not np.allclose(covariance, covariance.T, atol=1e-8):
+    if not np.allclose(covariance, covariance.T, rtol=1e-7, atol=1e-9):
         raise VyraEnvelopeError("GPS R must be symmetric")
-    if float(np.linalg.eigvalsh((covariance + covariance.T) / 2.0).min()) < -1e-8:
+    if float(np.linalg.eigvalsh((covariance + covariance.T) / 2.0).min()) < -1e-9:
         raise VyraEnvelopeError("GPS R must be positive semidefinite")
 
     temporal = envelope.temporal_reference
@@ -86,6 +110,14 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
         quality=None,
         is_valid=True,
         is_estimate=False,
+        uncertainty=MeasurementUncertainty(
+            status=UncertaintyStatus.PROVIDED,
+            covariance=covariance_copy,
+            variable_order=("x", "y"),
+            units=("m", "m"),
+            frame=CoordinateFrame.LOCAL_CARTESIAN,
+            provenance=f"vyra-artifact:{envelope.artifact_id}",
+        ),
         metadata={
             "vyra_artifact_id": str(envelope.artifact_id),
             "producer": str(envelope.producer),
@@ -117,3 +149,20 @@ def roboqa_gps_envelope_to_observation(envelope: Any) -> Observation:
             "integration_policy": "preserve_position_and_covariance_no_transform",
         },
     )
+
+
+
+class RoboQAGPSConsumerAdapter:
+    """Vyra Core ConsumerAdapter for RoboQA GPS envelopes.
+
+    The adapter is deliberately thin: all payload validation and Observation
+    construction remain in ``roboqa_gps_envelope_to_observation``.
+    """
+
+    name = "roboqa-gps-consumer"
+    version = "0.1.0"
+    consumer_module_id = "vyra.sensor_fusion"
+
+    def from_envelope(self, envelope: Any) -> Observation:
+        """Convert one Core envelope into a typed GNSS Observation."""
+        return roboqa_gps_envelope_to_observation(envelope)
